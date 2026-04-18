@@ -1,0 +1,6 @@
+(library
+ (name raytracer3110)
+ (public_name raytracer3110)
+ (modules ray vec)
+ (libraries str batteries)
+ )
