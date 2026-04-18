@@ -1,7 +1,7 @@
 type vector = float * float * float
 
 let add (u1, u2, u3) (v1, v2, v3) = (u1 +. v1, u2 +. v2, u3 +. v3)
-let sub (u1, u2, u3) (v1, v2, v3) = add (u1, u2, u3) (-.v1, -.v2, -.v2)
+let sub (u1, u2, u3) (v1, v2, v3) = add (u1, u2, u3) (-.v1, -.v2, -.v3)
 let mult s (u1, u2, u3) = (s *. u1, s *. u2, s *. u3)
 let dot (u1, u2, u3) (v1, v2, v3) = (u1 *. v1) +. (u2 *. v2) +. (u3 *. v3)
 
@@ -16,5 +16,10 @@ let normalize (u1, u2, u3) =
   else (u1 /. magnitude, u2 /. magnitude, u3 /. magnitude)
 
 let vec_to_string (u1, u2, u3) = Printf.sprintf "(%.2f, %.2f, %.2f)" u1 u2 u3
-let create_vector (x, y, z) = (x, y, z)
-let vec_to_tup (x, y, z) = (x, y, z)
+let vec_to_tup (u1, u2, u3) = (u1, u2, u3)
+let ( ^+ ) = add
+let ( ^- ) = sub
+let ( ^* ) = mult
+let ( ^. ) = dot
+let ( ^^ ) = cross
+let make (u1, u2, u3) = (u1, u2, u3)

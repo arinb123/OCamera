@@ -1,6 +1,6 @@
 (library
  (name raytracer3110)
  (public_name raytracer3110)
- (modules ray vec)
+ (modules ray vec camera ppm)
  (libraries str batteries)
  )
