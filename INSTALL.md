@@ -1,0 +1,1 @@
+Run opam upgrade, opam update. Install yojson. Put spheres as JSON objects in shapes.json, following the template two that are already there. Then, run bin/main.exe.

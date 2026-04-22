@@ -1,20 +1,23 @@
 open Vec
 open Ray
 
+(** [hittable] represents an object that can be hit by a ray *)
+type hittable =
+  | Sphere of vector * float
+  | HittableList of hittable list
+
 (** [hit_record] defines a hit event, tracking the point of intersection,
     normal, and time *)
 type hit_record = {
   p : vector;
   normal : vector;
   t : float;
+  hit_obj : hittable;
 }
 
-(** [hittable] represents an object that can be hit by a ray *)
-type hittable = Sphere of vector * float
-
-(** [make_hit_record p normal t] creates a new hit record with the given point,
-    normal, and time *)
-val make_hit_record : vector -> vector -> float -> hit_record
+(** [make_hit_record p normal t hit_obj] creates a new hit record with the given
+    point, normal, time, and hit object *)
+val make_hit_record : vector -> vector -> float -> hittable -> hit_record
 
 (** [hit h r t1 t2] determines if a ray intersects with a hittable object within
     a time range *)
