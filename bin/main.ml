@@ -2,9 +2,11 @@ open Raytracer3110.Vec
 open Raytracer3110.Ray
 open Raytracer3110.Camera
 open Raytracer3110.Ppm
+open Raytracer3110.Object
 
 let () =
   let b = create_file "data/test.ppm" image_width image_height in
+  let sphere1 = Sphere (Raytracer3110.Vec.make (0., 0., -1.), 0.5) in
   for i = 1 to image_height do
     Printf.printf "\rScanlines remaining: %d " (image_height - i);
     for j = 1 to image_width do
@@ -14,8 +16,8 @@ let () =
         ^+ float_of_int i ^* pixel_delta_v
       in
       let ray_direction = pixel_center ^- camera_center in
-      let r = make camera_center ray_direction in
-      let pixel_color = ray_color r in
+      let r = Raytracer3110.Ray.make camera_center ray_direction in
+      let pixel_color = Raytracer3110.Object.ray_color r sphere1 in
       write_file b pixel_color
     done
   done

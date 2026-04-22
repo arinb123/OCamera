@@ -10,8 +10,10 @@ let cross (u1, u2, u3) (v1, v2, v3) =
     -.((u1 *. v3) -. (u3 *. v1)),
     (u1 *. v2) -. (u2 *. v1) )
 
+let length_squared (u1, u2, u3) = (u1 *. u1) +. (u2 *. u2) +. (u3 *. u3)
+
 let normalize (u1, u2, u3) =
-  let magnitude = sqrt ((u1 *. u1) +. (u2 *. u2) +. (u3 *. u3)) in
+  let magnitude = sqrt (length_squared (u1, u2, u3)) in
   if magnitude = 0.0 then (0.0, 0.0, 0.0)
   else (u1 /. magnitude, u2 /. magnitude, u3 /. magnitude)
 
