@@ -9,5 +9,5 @@ let contains (intv : interval) (x : float) =
 
 let empty = (0., 0.)
 let universe = (neg_infinity, infinity)
-let max intv = fst intv
-let min intv = snd intv
+let min intv = fst intv
+let max intv = snd intv

@@ -16,14 +16,16 @@ let viewport_width =
 let camera_center = Vec.make (0., 0., 0.)
 let viewport_u = Vec.make (viewport_width, 0., 0.)
 let viewport_v = Vec.make (0., viewport_height *. -1., 0.)
-let pixel_delta_u = (1. /. float_of_int image_width) ^* viewport_u
-let pixel_delta_v = (1. /. float_of_int image_height) ^* viewport_v
+let pixel_delta_u = 1. /. float_of_int image_width *^ viewport_u
+let pixel_delta_v = 1. /. float_of_int image_height *^ viewport_v
 
 let viewport_upper_left =
-  ((camera_center ^- Vec.make (0.0, 0.0, focal_length)) ^- 0.5 ^* viewport_u)
-  ^- 0.5 ^* viewport_v
+  camera_center
+  -^ Vec.make (0.0, 0.0, focal_length)
+  -^ (0.5 *^ viewport_u) -^ (0.5 *^ viewport_v)
 
-let pixel00_loc = viewport_upper_left ^+ 0.5 ^* pixel_delta_u ^+ pixel_delta_v
+let pixel00_loc =
+  viewport_upper_left +^ (0.5 *^ (pixel_delta_u +^ pixel_delta_v))
 
 let parse_shapes json_filename =
   try
@@ -39,23 +41,39 @@ let parse_shapes json_filename =
 
 let render (json_filename : string) (output_filename : string) : unit =
   let object_list = parse_shapes json_filename in
-  (* parse the object list into a hittable list *)
+  let create_vector_yojson json =
+    match Yojson.Basic.Util.convert_each Yojson.Basic.Util.to_float json with
+    | [ x; y; z ] -> Vec.make (x, y, z)
+    | _ -> failwith "Expected a list of 3 floats for vector fields"
+    (* parse the object list into a hittable list *)
+  in
   let hittable_list =
     HittableList
       (List.map
          (fun obj ->
-           let center =
-             match
-               Yojson.Basic.Util.(
-                 obj |> member "center" |> convert_each to_float)
-             with
-             | [ x; y; z ] -> Vec.make (x, y, z)
-             | _ -> failwith "Expected center to be a list of 3 floats"
-           in
-           let radius =
-             Yojson.Basic.Util.(obj |> member "radius" |> to_float)
-           in
-           Sphere (center, radius))
+           (* match based on the type specified in the json *)
+           match Yojson.Basic.Util.(obj |> member "type" |> to_string) with
+           | "sphere" ->
+               let center =
+                 Yojson.Basic.Util.(
+                   obj |> member "center" |> create_vector_yojson)
+               in
+               let radius =
+                 Yojson.Basic.Util.(obj |> member "radius" |> to_float)
+               in
+               Sphere (center, radius)
+           | "triangle" ->
+               let v0 =
+                 Yojson.Basic.Util.(obj |> member "v0" |> create_vector_yojson)
+               in
+               let v1 =
+                 Yojson.Basic.Util.(obj |> member "v1" |> create_vector_yojson)
+               in
+               let v2 =
+                 Yojson.Basic.Util.(obj |> member "v2" |> create_vector_yojson)
+               in
+               Triangle (v0, v1, v2)
+           | _ -> failwith "Unknown object type in scene JSON")
          object_list)
   in
   let b = create_file output_filename image_width image_height in
@@ -64,10 +82,10 @@ let render (json_filename : string) (output_filename : string) : unit =
     for j = 1 to image_width do
       let pixel_center =
         pixel00_loc
-        ^+ (float_of_int j ^* pixel_delta_u)
-        ^+ float_of_int i ^* pixel_delta_v
+        +^ (float_of_int j *^ pixel_delta_u)
+        +^ (float_of_int i *^ pixel_delta_v)
       in
-      let ray_direction = pixel_center ^- camera_center in
+      let ray_direction = pixel_center -^ camera_center in
       let r = Ray.make camera_center ray_direction in
       let pixel_color = Object.ray_color r hittable_list in
       write_file b pixel_color

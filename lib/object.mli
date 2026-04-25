@@ -6,6 +6,7 @@ open Interval
 type hittable =
   | Sphere of vector * float
   | HittableList of hittable list
+  | Triangle of vector * vector * vector
 
 (** [hit_record] defines a hit event, tracking the point of intersection,
     normal, and time *)

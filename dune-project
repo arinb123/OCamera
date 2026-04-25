@@ -19,7 +19,7 @@
  (name raytracer3110)
  (synopsis "A short synopsis")
  (description "A longer description")
- (depends ocaml)
+ (depends ocaml bisect_ppx yojson ounit2 qcheck)
  (tags
   ("add topics" "to describe" your project)))
 

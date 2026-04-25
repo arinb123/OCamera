@@ -1,3 +1,5 @@
 (test
  (name test_raytracer3110)
- (libraries raytracer3110 ounit2 qcheck))
+ (libraries raytracer3110 ounit2 qcheck)
+ (instrumentation (backend bisect_ppx))
+ )

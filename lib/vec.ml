@@ -28,9 +28,13 @@ let vec_thd = function
 
 let vec_to_string (u1, u2, u3) = Printf.sprintf "(%.2f, %.2f, %.2f)" u1 u2 u3
 let vec_to_tup (u1, u2, u3) = (u1, u2, u3)
-let ( ^+ ) = add
-let ( ^- ) = sub
-let ( ^* ) = mult
-let ( ^. ) = dot
-let ( ^^ ) = cross
+let ( +^ ) = add
+let ( -^ ) = sub
+let ( *^ ) = mult
+let ( /^ ) v s = mult (1. /. s) v
 let make (u1, u2, u3) = (u1, u2, u3)
+
+let vec_eq v1 v2 =
+  let u1, u2, u3 = v1 in
+  let v1, v2, v3 = v2 in
+  u1 = v1 && u2 = v2 && u3 = v3

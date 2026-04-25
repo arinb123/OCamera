@@ -40,17 +40,18 @@ val vec_snd : vector -> float
 (** [vec_thd v] returns the third element of the vector *)
 val vec_thd : vector -> float
 
-(** [u ^+ v] is an alias for [add u v]. *)
-val ( ^+ ) : vector -> vector -> vector
+(** [vec_eq v1 v2] returns whether v1 and v2 are the same vector (same
+    components) *)
+val vec_eq : vector -> vector -> bool
 
-(** [u ^- v] is an alias for [sub u v]. *)
-val ( ^- ) : vector -> vector -> vector
+(** [u +^ v] is an alias for [add u v]. *)
+val ( +^ ) : vector -> vector -> vector
 
-(** [s ^* v] is an alias for [mult s v]. *)
-val ( ^* ) : float -> vector -> vector
+(** [u -^ v] is an alias for [sub u v]. *)
+val ( -^ ) : vector -> vector -> vector
 
-(** [u ^. v] is an alias for [dot u v]. *)
-val ( ^. ) : vector -> vector -> float
+(** [s *^ v] is an alias for [mult s v]. *)
+val ( *^ ) : float -> vector -> vector
 
-(** [u ^^ v] is an alias for [cross u v]. *)
-val ( ^^ ) : vector -> vector -> vector
+(** [v /^ s] is an alias for [mult (1. /. s) v]. *)
+val ( /^ ) : vector -> float -> vector
