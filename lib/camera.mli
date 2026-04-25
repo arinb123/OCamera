@@ -32,5 +32,6 @@ val pixel_delta_v : vector
 (** [pixel00_loc] is the location of the top-left pixel. *)
 val pixel00_loc : vector
 
-(** [render] produces a ppm corresponding to a file name containing JSON shapes*)
-val render : string -> unit
+(** [render json_filename output_filename] renders shapes from [json_filename]
+    to a PPM file at [output_filename]. *)
+val render : string -> string -> unit

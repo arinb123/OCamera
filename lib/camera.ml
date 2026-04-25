@@ -25,9 +25,20 @@ let viewport_upper_left =
 
 let pixel00_loc = viewport_upper_left ^+ 0.5 ^* pixel_delta_u ^+ pixel_delta_v
 
-let render (filename : string) : unit =
-  let json = Yojson.Basic.from_file "./data/shapes.json" in
-  let object_list = Yojson.Basic.Util.to_list json in
+let parse_shapes json_filename =
+  try
+    let json = Yojson.Basic.from_file json_filename in
+    match json with
+    | `List object_list -> object_list
+    | _ -> failwith "Scene JSON must be a list of objects."
+  with
+  | Yojson.Json_error msg ->
+      failwith ("Invalid JSON in scene file '" ^ json_filename ^ "': " ^ msg)
+  | Sys_error msg ->
+      failwith ("Could not read scene file '" ^ json_filename ^ "': " ^ msg)
+
+let render (json_filename : string) (output_filename : string) : unit =
+  let object_list = parse_shapes json_filename in
   (* parse the object list into a hittable list *)
   let hittable_list =
     HittableList
@@ -47,7 +58,7 @@ let render (filename : string) : unit =
            Sphere (center, radius))
          object_list)
   in
-  let b = create_file filename image_width image_height in
+  let b = create_file output_filename image_width image_height in
   for i = 1 to image_height do
     Printf.printf "\rScanlines remaining: %d " (image_height - i);
     for j = 1 to image_width do
@@ -61,4 +72,5 @@ let render (filename : string) : unit =
       let pixel_color = Object.ray_color r hittable_list in
       write_file b pixel_color
     done
-  done
+  done;
+  close_file b
