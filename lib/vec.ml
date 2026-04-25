@@ -17,6 +17,15 @@ let normalize (u1, u2, u3) =
   if magnitude = 0.0 then (0.0, 0.0, 0.0)
   else (u1 /. magnitude, u2 /. magnitude, u3 /. magnitude)
 
+let vec_fst = function
+  | x, _, _ -> x
+
+let vec_snd = function
+  | _, y, _ -> y
+
+let vec_thd = function
+  | _, _, z -> z
+
 let vec_to_string (u1, u2, u3) = Printf.sprintf "(%.2f, %.2f, %.2f)" u1 u2 u3
 let vec_to_tup (u1, u2, u3) = (u1, u2, u3)
 let ( ^+ ) = add

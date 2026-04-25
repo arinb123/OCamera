@@ -31,6 +31,15 @@ val make : float * float * float -> vector
 (** [length_squared v] returns the square of the length of [v] *)
 val length_squared : vector -> float
 
+(** [vec_fst v] returns the first element of the vector *)
+val vec_fst : vector -> float
+
+(** [vec_snd v] returns the second element of the vector *)
+val vec_snd : vector -> float
+
+(** [vec_thd v] returns the third element of the vector *)
+val vec_thd : vector -> float
+
 (** [u ^+ v] is an alias for [add u v]. *)
 val ( ^+ ) : vector -> vector -> vector
 

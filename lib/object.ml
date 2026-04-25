@@ -1,5 +1,6 @@
 open Vec
 open Ray
+open Interval
 
 type hittable =
   | Sphere of vector * float
@@ -12,9 +13,11 @@ type hit_record = {
   hit_obj : hittable;
 }
 
+type interval = float * float
+
 let make_hit_record p normal t hit_obj = { p; normal; t; hit_obj }
 
-let rec hit obj r t_min t_max =
+let rec hit (obj : hittable) (r : ray) (interval : interval) =
   match obj with
   | Sphere (center, radius) ->
       let (oc : vector) = center ^- origin r in
@@ -26,28 +29,40 @@ let rec hit obj r t_min t_max =
       if discriminant < 0. then None
       else
         let t = (h -. sqrt discriminant) /. a in
-        if t <= t_min || t >= t_max then
+        let p_contained = contains interval t in
+        let p_intersect = at r t in
+        if p_contained then
           let t = (h +. sqrt discriminant) /. a in
-          if t <= t_min || t >= t_max then None
+          if contains interval t then None
           else
-            let normal = normalize (at r t ^- center) in
-            Some (make_hit_record (at r t) normal t obj)
+            let outward_normal = (1. /. radius) ^* p_intersect ^- center in
+            let front_face = dot (direction r) outward_normal < 0. in
+            let normal =
+              if front_face then outward_normal else -1. ^* outward_normal
+            in
+            Some (make_hit_record p_intersect normal t obj)
         else
-          let normal = normalize (at r t ^- center) in
-          Some (make_hit_record (at r t) normal t obj)
+          let outward_normal = (1. /. radius) ^* p_intersect ^- center in
+          let front_face = dot (direction r) outward_normal < 0. in
+          let normal =
+            if front_face then outward_normal else -1. ^* outward_normal
+          in
+          Some (make_hit_record p_intersect normal t obj)
   | HittableList (h :: t) -> (
-      let hit_left = hit h r t_min t_max in
+      let hit_left = hit h r interval in
       match hit_left with
-      | None -> hit (HittableList t) r t_min t_max
+      | None -> hit (HittableList t) r interval
       | Some rec_left -> (
-          let hit_right = hit (HittableList t) r t_min rec_left.t in
+          let hit_right =
+            hit (HittableList t) r (Interval.make (min interval, rec_left.t))
+          in
           match hit_right with
           | None -> Some rec_left
           | Some rec_right -> Some rec_right))
   | HittableList [] -> None
 
 let ray_color ray obj =
-  let hit_record = hit obj ray 0.001 infinity in
+  let hit_record = hit obj ray (Interval.make (0., infinity)) in
   match hit_record with
   | None ->
       let unit_direction = normalize (direction ray) in

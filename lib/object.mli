@@ -1,5 +1,6 @@
 open Vec
 open Ray
+open Interval
 
 (** [hittable] represents an object that can be hit by a ray *)
 type hittable =
@@ -21,7 +22,7 @@ val make_hit_record : vector -> vector -> float -> hittable -> hit_record
 
 (** [hit h r t1 t2] determines if a ray intersects with a hittable object within
     a time range *)
-val hit : hittable -> ray -> float -> float -> hit_record option
+val hit : hittable -> ray -> interval -> hit_record option
 
 (** [ray_color r obj] returns the color of the ray [r] when it hits the hittable
     [obj] *)
