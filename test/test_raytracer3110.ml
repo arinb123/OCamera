@@ -209,79 +209,146 @@ let camera_tests =
              (float_eq expected viewport_width) );
        ]
 
-(* Randomized QCheck tests let eps = 1e-6 let float_eq a b = abs_float (a -. b)
-   < eps
+let eps = 1e-6
+let float_eq a b = abs_float (a -. b) < eps
 
-   (* Randomized QCheck vector tests *) let vec_eq v1 v2 = let x1, y1, z1 =
-   vec_to_tup v1 in let x2, y2, z2 = vec_to_tup v2 in float_eq x1 x2 && float_eq
-   y1 y2 && float_eq z1 z2
+(* Randomized QCheck vector tests *)
+let vec_eq v1 v2 =
+  let x1, y1, z1 = vec_to_tup v1 in
+  let x2, y2, z2 = vec_to_tup v2 in
+  float_eq x1 x2 && float_eq y1 y2 && float_eq z1 z2
 
-   let gen_vec = let open Gen in triple (float_range (-100.) 100.) (float_range
-   (-100.) 100.) (float_range (-100.) 100.) |> map V.make
+let gen_vec =
+  let open Gen in
+  triple (float_range (-100.) 100.) (float_range (-100.) 100.)
+    (float_range (-100.) 100.)
+  |> map V.make
 
-   let arb_vec = QCheck.make gen_vec
+let arb_vec = QCheck.make gen_vec
 
-   let add_comm = Test.make ~name:"vector addition is commutative" arb_vec (fun
-   v1 -> let v2 = V.make ( Random.float 200. -. 100., Random.float 200. -. 100.,
-   Random.float 200. -. 100. ) in vec_eq (add v1 v2) (add v2 v1))
+let add_comm =
+  Test.make ~name:"vector addition is commutative" arb_vec (fun v1 ->
+      let v2 =
+        V.make
+          ( Random.float 200. -. 100.,
+            Random.float 200. -. 100.,
+            Random.float 200. -. 100. )
+      in
+      vec_eq (add v1 v2) (add v2 v1))
 
-   let add_assoc = Test.make ~name:"vector addition is associative" arb_vec (fun
-   v1 -> let v2 = V.make ( Random.float 200. -. 100., Random.float 200. -. 100.,
-   Random.float 200. -. 100. ) in let v3 = V.make ( Random.float 200. -. 100.,
-   Random.float 200. -. 100., Random.float 200. -. 100. ) in vec_eq (add (add v1
-   v2) v3) (add v1 (add v2 v3)))
+let add_assoc =
+  Test.make ~name:"vector addition is associative" arb_vec (fun v1 ->
+      let v2 =
+        V.make
+          ( Random.float 200. -. 100.,
+            Random.float 200. -. 100.,
+            Random.float 200. -. 100. )
+      in
+      let v3 =
+        V.make
+          ( Random.float 200. -. 100.,
+            Random.float 200. -. 100.,
+            Random.float 200. -. 100. )
+      in
+      vec_eq (add (add v1 v2) v3) (add v1 (add v2 v3)))
 
-   let scalar_mult_dist = Test.make ~name:"scalar multiplication distributes
-   over vector addition" arb_vec (fun v1 -> let v2 = V.make ( Random.float 200.
-   -. 100., Random.float 200. -. 100., Random.float 200. -. 100. ) in let s =
-   Random.float 10. in vec_eq (mult s (add v1 v2)) (add (mult s v1) (mult s
-   v2)))
+let scalar_mult_dist =
+  Test.make ~name:"scalar multiplication distributes\n   over vector addition"
+    arb_vec (fun v1 ->
+      let v2 =
+        V.make
+          ( Random.float 200. -. 100.,
+            Random.float 200. -. 100.,
+            Random.float 200. -. 100. )
+      in
+      let s = Random.float 10. in
+      vec_eq (mult s (add v1 v2)) (add (mult s v1) (mult s v2)))
 
-   let dot_linear = Test.make ~name:"dot product is linear in first argument"
-   arb_vec (fun v1 -> let v2 = V.make ( Random.float 200. -. 100., Random.float
-   200. -. 100., Random.float 200. -. 100. ) in let v3 = V.make ( Random.float
-   200. -. 100., Random.float 200. -. 100., Random.float 200. -. 100. ) in let s
-   = Random.float 10. in float_eq (dot (add v1 v2) v3) (dot v1 v3 +. dot v2 v3)
-   && float_eq (dot (mult s v1) v3) (s *. dot v1 v3))
+let dot_linear =
+  Test.make ~name:"dot product is linear in first argument" arb_vec (fun v1 ->
+      let v2 =
+        V.make
+          ( Random.float 200. -. 100.,
+            Random.float 200. -. 100.,
+            Random.float 200. -. 100. )
+      in
+      let v3 =
+        V.make
+          ( Random.float 200. -. 100.,
+            Random.float 200. -. 100.,
+            Random.float 200. -. 100. )
+      in
+      let s = Random.float 10. in
+      float_eq (dot (add v1 v2) v3) (dot v1 v3 +. dot v2 v3)
+      && float_eq (dot (mult s v1) v3) (s *. dot v1 v3))
 
-   let cross_orthogonal = Test.make ~name:"cross product of orthogonal vectors
-   is nonzero" arb_vec (fun v1 -> let x1, y1, _ = vec_to_tup v1 in let v2 =
-   V.make (-.y1, x1, 0.) in let cross_prod = cross v1 v2 in let x, y, z =
-   vec_to_tup cross_prod in not (float_eq x 0. && float_eq y 0. && float_eq z
-   0.))
+let cross_orthogonal =
+  Test.make ~name:"cross product of orthogonal vectors\n   is nonzero" arb_vec
+    (fun v1 ->
+      let x1, y1, _ = vec_to_tup v1 in
+      let v2 = V.make (-.y1, x1, 0.) in
+      let cross_prod = cross v1 v2 in
+      let x, y, z = vec_to_tup cross_prod in
+      not (float_eq x 0. && float_eq y 0. && float_eq z 0.))
 
-   let cross_anticomm = Test.make ~name:"cross product is anti-commutative"
-   arb_vec (fun v1 -> let v2 = V.make ( Random.float 200. -. 100., Random.float
-   200. -. 100., Random.float 200. -. 100. ) in vec_eq (cross v1 v2) (mult (-1.)
-   (cross v2 v1)))
+let cross_anticomm =
+  Test.make ~name:"cross product is anti-commutative" arb_vec (fun v1 ->
+      let v2 =
+        V.make
+          ( Random.float 200. -. 100.,
+            Random.float 200. -. 100.,
+            Random.float 200. -. 100. )
+      in
+      vec_eq (cross v1 v2) (mult (-1.) (cross v2 v1)))
 
-   let length_dot = Test.make ~name:"length squared equals dot product with
-   itself" arb_vec (fun v1 -> float_eq (length_squared v1) (dot v1 v1))
+let length_dot =
+  Test.make ~name:"length squared equals dot product with\n   itself" arb_vec
+    (fun v1 -> float_eq (length_squared v1) (dot v1 v1))
 
-   (* Ray random tests*) let gen_ray = Gen.pair gen_vec gen_vec let arb_ray =
-   QCheck.make gen_ray
+(* Ray random tests*)
+let gen_ray = Gen.pair gen_vec gen_vec
+let arb_ray = QCheck.make gen_ray
 
-   let test_ray_at = Test.make ~name:"ray at function" arb_ray (fun (origin,
-   direction) -> let r = R.make origin direction in let t = Random.float 100. in
-   vec_eq (at r t) (add origin (mult t direction)))
+let test_ray_at =
+  Test.make ~name:"ray at function" arb_ray (fun (origin, direction) ->
+      let r = R.make origin direction in
+      let t = Random.float 100. in
+      vec_eq (at r t) (add origin (mult t direction)))
 
-   let gen_sphere = Gen.pair (Gen.float_range 0.1 100.) gen_vec let arb_sphere =
-   QCheck.make gen_sphere let arb_sphere_list = QCheck.list arb_sphere
+let gen_sphere = Gen.pair (Gen.float_range 0.1 100.) gen_vec
+let arb_sphere = QCheck.make gen_sphere
+let arb_sphere_list = QCheck.list arb_sphere
 
-   (* let gen_hittable = QCheck.oneof [ QCheck.map (fun (radius, origin) ->
-   O.Sphere (origin, radius)) arb_sphere; ] *) let test_sphere_hit = Test.make
-   ~name:"sphere hit satisfies sphere equation" (QCheck.pair arb_ray arb_sphere)
-   (fun ((ray_o, ray_d), (radius, origin)) -> let r = R.make ray_o ray_d in let
-   s = O.Sphere (origin, radius) in match O.hit s r (make (0.001, infinity))
-   with | Some hit_rec -> let hit_point = hit_rec.p in let hit_vec = sub
-   hit_point origin in float_eq (length_squared hit_vec) (radius *. radius) |
-   None -> true)
+(* let gen_hittable = QCheck.oneof [ QCheck.map (fun (radius, origin) ->
+   O.Sphere (origin, radius)) arb_sphere; ] *)
+let test_sphere_hit =
+  Test.make ~name:"sphere hit satisfies sphere equation"
+    (QCheck.pair arb_ray arb_sphere) (fun ((ray_o, ray_d), (radius, origin)) ->
+      let r = R.make ray_o ray_d in
+      let s = O.Sphere (origin, radius) in
+      match O.hit s r (make (0.001, infinity)) with
+      | Some hit_rec ->
+          let hit_point = hit_rec.p in
+          let hit_vec = sub hit_point origin in
+          float_eq (length_squared hit_vec) (radius *. radius)
+      | None -> true)
 
-   let qcheck_tests = List.map QCheck_ounit.to_ounit2_test [ add_comm;
-   add_assoc; scalar_mult_dist; dot_linear; cross_orthogonal; cross_anticomm;
-   length_dot; test_ray_at; test_sphere_hit; ] *)
+let qcheck_tests =
+  List.map QCheck_ounit.to_ounit2_test
+    [
+      add_comm;
+      add_assoc;
+      scalar_mult_dist;
+      dot_linear;
+      cross_orthogonal;
+      cross_anticomm;
+      length_dot;
+      test_ray_at;
+      test_sphere_hit;
+    ]
 
 let tests =
-  "test suite" >::: [ vector_tests; order_of_operations_tests; ray_tests ]
+  "test suite"
+  >::: [ vector_tests; order_of_operations_tests; ray_tests ] @ qcheck_tests
 
 let _ = run_test_tt_main tests

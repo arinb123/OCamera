@@ -13,7 +13,7 @@ let viewport_height = 2.
 let viewport_width =
   viewport_height *. (float_of_int image_width /. float_of_int image_height)
 
-let camera_center = Vec.make (0., 0., 0.)
+let camera_center = Vec.make (0., 0., 5.)
 let viewport_u = Vec.make (viewport_width, 0., 0.)
 let viewport_v = Vec.make (0., viewport_height *. -1., 0.)
 let pixel_delta_u = 1. /. float_of_int image_width *^ viewport_u
@@ -38,6 +38,41 @@ let parse_shapes json_filename =
       failwith ("Invalid JSON in scene file '" ^ json_filename ^ "': " ^ msg)
   | Sys_error msg ->
       failwith ("Could not read scene file '" ^ json_filename ^ "': " ^ msg)
+
+(* Parse a vertex line: "v x y z" *)
+let parse_vertex line =
+  match String.split_on_char ' ' line |> List.filter (( <> ) "") with
+  | [ "v"; x; y; z ] -> (
+      try Vec.make (float_of_string x, float_of_string y, float_of_string z)
+      with Failure _ -> failwith ("Invalid vertex format: " ^ line))
+  | _ -> failwith ("Invalid vertex line: " ^ line)
+
+let parse_face line =
+  match String.split_on_char ' ' line |> List.filter (( <> ) "") with
+  | [ "f"; x; y; z ] -> (
+      try (int_of_string x - 1, int_of_string y - 1, int_of_string z - 1)
+      with Failure _ -> failwith ("Invalid face format: " ^ line))
+  | _ -> failwith ("Invalid vertex line: " ^ line)
+
+let process_obj (obj_filename : string) =
+  let vertices = ref [] in
+  let faces = ref [] in
+  let chan = open_in obj_filename in
+  try
+    while true do
+      let line = input_line chan in
+      if String.length line >= 2 then
+        match String.sub line 0 1 with
+        | "v" -> vertices := parse_vertex line :: !vertices
+        | "f" -> faces := parse_face line :: !faces
+        | _ -> ()
+    done
+  with End_of_file ->
+    close_in chan;
+    let vertices = List.rev !vertices in
+    let faces = List.rev !faces in
+    (* print_endline (string_of_int (List.length vertices)); *)
+    TriangularMesh (vertices, faces)
 
 let render (json_filename : string) (output_filename : string) : unit =
   let object_list = parse_shapes json_filename in
@@ -73,6 +108,12 @@ let render (json_filename : string) (output_filename : string) : unit =
                  Yojson.Basic.Util.(obj |> member "v2" |> create_vector_yojson)
                in
                Triangle (v0, v1, v2)
+           | "triangular_mesh" ->
+               let file_path =
+                 Yojson.Basic.Util.(obj |> member "file_path" |> to_string)
+               in
+               let mesh = process_obj file_path in
+               mesh
            | _ -> failwith "Unknown object type in scene JSON")
          object_list)
   in

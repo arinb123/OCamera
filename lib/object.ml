@@ -6,6 +6,7 @@ type hittable =
   | Sphere of vector * float
   | HittableList of hittable list
   | Triangle of vector * vector * vector
+  | TriangularMesh of vector list * (int * int * int) list
 
 type hit_record = {
   p : vector;
@@ -50,6 +51,30 @@ let get_hit_triangle triangle ray interval : hit_record option =
   | _ ->
       raise (Invalid_argument "get_hit_triangle called on non-triangle object")
 
+let get_hit_mesh mesh ray interval =
+  match mesh with
+  | TriangularMesh (vertices, faces) ->
+      let verts = Array.of_list vertices in
+      let temp = Vec.make (infinity, infinity, infinity) in
+      let latest_hit =
+        List.fold_left
+          (fun acc (a, b, c) ->
+            let triangle = Triangle (verts.(a), verts.(b), verts.(c)) in
+            let triangle_hit = get_hit_triangle triangle ray interval in
+            match triangle_hit with
+            | None -> acc
+            | Some hit -> if hit.t < acc.t then hit else acc)
+          {
+            p = temp;
+            normal = temp;
+            t = infinity;
+            hit_obj = Triangle (temp, temp, temp);
+          }
+          faces
+      in
+      if latest_hit.t = infinity then None else Some latest_hit
+  | _ -> raise (Invalid_argument "get_hit_mesh called on non-mesh object")
+
 let get_hit_sphere (sphere : hittable) (curr_ray : ray) (interval : interval) :
     hit_record option =
   match sphere with
@@ -88,6 +113,7 @@ let rec hit (obj : hittable) (curr_ray : ray) (interval : interval) =
   match obj with
   | Sphere _ -> get_hit_sphere obj curr_ray interval
   | Triangle _ -> get_hit_triangle obj curr_ray interval
+  | TriangularMesh _ -> get_hit_mesh obj curr_ray interval
   | HittableList (h :: t) -> (
       (* recursively traverse the list of objects, collecting the record
          associated w/ the closest hit *)
