@@ -47,32 +47,65 @@ let parse_vertex line =
       with Failure _ -> failwith ("Invalid vertex format: " ^ line))
   | _ -> failwith ("Invalid vertex line: " ^ line)
 
+(* Parse a face line : "f x y z"*)
 let parse_face line =
   match String.split_on_char ' ' line |> List.filter (( <> ) "") with
   | [ "f"; x; y; z ] -> (
       try (int_of_string x - 1, int_of_string y - 1, int_of_string z - 1)
       with Failure _ -> failwith ("Invalid face format: " ^ line))
-  | _ -> failwith ("Invalid vertex line: " ^ line)
+  | _ -> failwith ("Invalid face line: " ^ line)
+
+let vec_min v0 v1 =
+  let x1, y1, z1 = Vec.vec_to_tup v0 in
+  let x2, y2, z2 = Vec.vec_to_tup v1 in
+  Vec.make (min x1 x2, min y1 y2, min z1 z2)
+
+let vec_max v0 v1 =
+  let x1, y1, z1 = Vec.vec_to_tup v0 in
+  let x2, y2, z2 = Vec.vec_to_tup v1 in
+  Vec.make (max x1 x2, max y1 y2, max z1 z2)
 
 let process_obj (obj_filename : string) =
-  let vertices = ref [] in
-  let faces = ref [] in
+  let vertices = Dynarray.create () in
+  let faces = Dynarray.create () in
   let chan = open_in obj_filename in
+  let normals = Dynarray.create () in
+  let min_vec = ref (Vec.make (infinity, infinity, infinity)) in
+  let max_vec = ref (Vec.make (neg_infinity, neg_infinity, neg_infinity)) in
   try
     while true do
       let line = input_line chan in
       if String.length line >= 2 then
         match String.sub line 0 1 with
-        | "v" -> vertices := parse_vertex line :: !vertices
-        | "f" -> faces := parse_face line :: !faces
+        | "v" ->
+            let vertex = parse_vertex line in
+            Dynarray.add_last vertices vertex;
+            min_vec := vec_min !min_vec vertex;
+            max_vec := vec_max !max_vec vertex
+        | "f" -> (
+            let face = parse_face line in
+            Dynarray.add_last faces face;
+            match face with
+            | a, b, c ->
+                let v0 = Dynarray.get vertices a in
+                let v1 = Dynarray.get vertices b in
+                let v2 = Dynarray.get vertices c in
+                let v0v1 = v1 -^ v0 in
+                let v0v2 = v2 -^ v0 in
+                let n = cross v0v1 v0v2 in
+                Dynarray.add_last normals n)
         | _ -> ()
     done
   with End_of_file ->
     close_in chan;
-    let vertices = List.rev !vertices in
-    let faces = List.rev !faces in
     (* print_endline (string_of_int (List.length vertices)); *)
-    TriangularMesh (vertices, faces)
+    print_endline (string_of_float (Vec.vec_fst !min_vec));
+    print_endline (string_of_float (Vec.vec_fst !max_vec));
+    TriangularMesh
+      ( Dynarray.to_list vertices,
+        Dynarray.to_list faces,
+        Dynarray.to_list normals,
+        { min = !min_vec; max = !max_vec } )
 
 let render (json_filename : string) (output_filename : string) : unit =
   let object_list = parse_shapes json_filename in
