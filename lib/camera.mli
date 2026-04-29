@@ -29,8 +29,13 @@ val pixel_delta_u : vector
 *)
 val pixel_delta_v : vector
 
-(** [pixel00_loc] is the location of the top-left pixel. *)
-val pixel00_loc : vector
+(** [pixel00_loc camera_center] is the location of the top-left pixel for the
+    given [camera_center]. *)
+val pixel00_loc : vector -> vector
+
+(** [render_with_camera camera_center json_filename output_filename] renders the
+    scene with the camera placed at [camera_center]. *)
+val render_with_camera : vector -> string -> string -> unit
 
 (** [render json_filename output_filename] renders shapes from [json_filename]
     to a PPM file at [output_filename]. *)

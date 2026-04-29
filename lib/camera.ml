@@ -19,13 +19,13 @@ let viewport_v = Vec.make (0., viewport_height *. -1., 0.)
 let pixel_delta_u = 1. /. float_of_int image_width *^ viewport_u
 let pixel_delta_v = 1. /. float_of_int image_height *^ viewport_v
 
-let viewport_upper_left =
+let viewport_upper_left camera_center =
   camera_center
   -^ Vec.make (0.0, 0.0, focal_length)
   -^ (0.5 *^ viewport_u) -^ (0.5 *^ viewport_v)
 
-let pixel00_loc =
-  viewport_upper_left +^ (0.5 *^ (pixel_delta_u +^ pixel_delta_v))
+let pixel00_loc camera_center =
+  viewport_upper_left camera_center +^ (0.5 *^ (pixel_delta_u +^ pixel_delta_v))
 
 let parse_shapes json_filename =
   try
@@ -39,7 +39,8 @@ let parse_shapes json_filename =
   | Sys_error msg ->
       failwith ("Could not read scene file '" ^ json_filename ^ "': " ^ msg)
 
-let render (json_filename : string) (output_filename : string) : unit =
+let render_with_camera (camera_center : vector) (json_filename : string)
+    (output_filename : string) : unit =
   let object_list = parse_shapes json_filename in
   let create_vector_yojson json =
     match Yojson.Basic.Util.convert_each Yojson.Basic.Util.to_float json with
@@ -76,10 +77,11 @@ let render (json_filename : string) (output_filename : string) : unit =
            | _ -> failwith "Unknown object type in scene JSON")
          object_list)
   in
+  let pixel00_loc = pixel00_loc camera_center in
   let b = create_file output_filename image_width image_height in
-  for i = 1 to image_height do
+  for i = 0 to image_height - 1 do
     Printf.printf "\rScanlines remaining: %d " (image_height - i);
-    for j = 1 to image_width do
+    for j = 0 to image_width - 1 do
       let pixel_center =
         pixel00_loc
         +^ (float_of_int j *^ pixel_delta_u)
@@ -92,3 +94,6 @@ let render (json_filename : string) (output_filename : string) : unit =
     done
   done;
   close_file b
+
+let render (json_filename : string) (output_filename : string) : unit =
+  render_with_camera camera_center json_filename output_filename
