@@ -131,14 +131,20 @@ let rec hit (obj : hittable) (curr_ray : ray) (interval : interval) =
           | Some rec_right -> Some rec_right))
   | HittableList [] -> None
 
-let ray_color ray obj =
-  let hit_record = hit obj ray (Interval.make (0.001, infinity)) in
-  match hit_record with
-  | None ->
-      (* render a blue gradient for the background, linear interpolation between
-         blue and white depending on y-value. *)
-      let unit_direction = normalize (direction ray) in
-      let _, y, _ = vec_to_tup unit_direction in
-      let a = 0.5 *. (y +. 1.0) in
-      ((1.0 -. a) *^ Vec.make (1.0, 1.0, 1.0)) +^ (a *^ Vec.make (0.5, 0.7, 1.0))
-  | Some hit -> 0.5 *^ (hit.normal +^ Vec.make (1., 1., 1.))
+let rec ray_color ray depth obj =
+  if depth <= 0 then Vec.make (0., 0., 0.)
+  else
+    let hit_record = hit obj ray (Interval.make (0.001, infinity)) in
+    match hit_record with
+    | None ->
+        (* render a blue gradient for the background, linear interpolation
+           between blue and white depending on y-value. *)
+        let unit_direction = normalize (direction ray) in
+        let _, y, _ = vec_to_tup unit_direction in
+        let a = 0.5 *. (y +. 1.0) in
+        ((1.0 -. a) *^ Vec.make (1.0, 1.0, 1.0))
+        +^ (a *^ Vec.make (0.5, 0.7, 1.0))
+    | Some hit ->
+        (* implement true lambertian reflection *)
+        let direction = hit.normal +^ Vec.random_on_hemisphere hit.normal in
+        0.3 *^ ray_color (Ray.make hit.p direction) (depth - 1) obj

@@ -44,6 +44,14 @@ val vec_thd : vector -> float
     components) *)
 val vec_eq : vector -> vector -> bool
 
+(** [random min max] returns a random vector in which each component is a random
+    float between [min] and [max] *)
+val random_vec : float -> float -> vector
+
+(** [random_on_hemisphere normal] generates a random valid unit vector on the
+    same hemisphere as the given normal. *)
+val random_on_hemisphere : vector -> vector
+
 (** [u +^ v] is an alias for [add u v]. *)
 val ( +^ ) : vector -> vector -> vector
 

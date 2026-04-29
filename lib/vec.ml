@@ -38,3 +38,20 @@ let vec_eq v1 v2 =
   let u1, u2, u3 = v1 in
   let v1, v2, v3 = v2 in
   u1 = v1 && u2 = v2 && u3 = v3
+
+(** [random min max] returns a random vector in which each component is a random
+    float between [min] and [max] *)
+let random_vec min max =
+  let rand_float () = (Random.float 1.0 *. (max -. min)) +. min in
+  (rand_float (), rand_float (), rand_float ())
+
+let rec random_unit_vector () =
+  let rand_vec = random_vec (-1.0) 1. in
+  let lensq = length_squared rand_vec in
+  if 1e-160 < lensq && lensq <= 1. then rand_vec /^ sqrt lensq
+  else random_unit_vector ()
+
+let random_on_hemisphere normal =
+  let on_unit_sphere = random_unit_vector () in
+  if dot on_unit_sphere normal > 0.0 then on_unit_sphere
+  else -1. *^ on_unit_sphere

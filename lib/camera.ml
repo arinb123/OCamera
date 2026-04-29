@@ -8,16 +8,19 @@ let aspect_ratio = 16.0 /. 9.0
 let image_width = 400
 let image_height = int_of_float (float_of_int image_width /. aspect_ratio)
 let focal_length = 1.
+let camera_center = Vec.make (0., 0., 0.)
 let viewport_height = 2.
+let max_depth = 10
 
 let viewport_width =
   viewport_height *. (float_of_int image_width /. float_of_int image_height)
 
-let camera_center = Vec.make (0., 0., 5.)
-let viewport_u = Vec.make (viewport_width, 0., 0.)
-let viewport_v = Vec.make (0., viewport_height *. -1., 0.)
-let pixel_delta_u = 1. /. float_of_int image_width *^ viewport_u
-let pixel_delta_v = 1. /. float_of_int image_height *^ viewport_v
+let viewport_u, viewport_v =
+  (Vec.make (viewport_width, 0., 0.), Vec.make (0., viewport_height *. -1., 0.))
+
+let pixel_delta_u, pixel_delta_v =
+  ( 1. /. float_of_int image_width *^ viewport_u,
+    1. /. float_of_int image_height *^ viewport_v )
 
 let viewport_upper_left =
   camera_center
@@ -26,6 +29,8 @@ let viewport_upper_left =
 
 let pixel00_loc =
   viewport_upper_left +^ (0.5 *^ (pixel_delta_u +^ pixel_delta_v))
+
+let samples_per_pixel = 10
 
 let parse_shapes json_filename =
   try
@@ -123,13 +128,29 @@ let render (json_filename : string) (output_filename : string) : unit =
     for j = 1 to image_width do
       let pixel_center =
         pixel00_loc
-        +^ (float_of_int j *^ pixel_delta_u)
-        +^ (float_of_int i *^ pixel_delta_v)
+        +^ (float_of_int (j - 1) *^ pixel_delta_u)
+        +^ (float_of_int (i - 1) *^ pixel_delta_v)
       in
-      let ray_direction = pixel_center -^ camera_center in
-      let r = Ray.make camera_center ray_direction in
-      let pixel_color = Object.ray_color r hittable_list in
-      write_file b pixel_color
+      let rec sum_nearest_pixels n acc =
+        if n = 0 then acc
+        else
+          let offset_x = Random.float 1.0 -. 0.5 in
+          let offset_y = Random.float 1.0 -. 0.5 in
+          let pixel_sample =
+            pixel_center
+            +^ (offset_x *^ pixel_delta_u)
+            +^ (offset_y *^ pixel_delta_v)
+          in
+          let new_ray =
+            Ray.make camera_center (pixel_sample -^ camera_center)
+          in
+          let color = ray_color new_ray max_depth hittable_list in
+          sum_nearest_pixels (n - 1) (acc +^ color)
+      in
+
+      write_file b
+        (sum_nearest_pixels samples_per_pixel (Vec.make (0., 0., 0.))
+        /^ float_of_int samples_per_pixel)
     done
   done;
   close_file b

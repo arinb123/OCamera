@@ -26,6 +26,6 @@ val make_hit_record : vector -> vector -> float -> hittable -> hit_record
     the point of intersection, if any. *)
 val hit : hittable -> ray -> interval -> hit_record option
 
-(** [ray_color r obj] returns the color of the ray [r] when it hits the hittable
-    [obj] *)
-val ray_color : ray -> hittable -> vector
+(** [ray_color r depth obj] returns the color of the ray [r] when it hits the
+    hittable [obj] *)
+val ray_color : ray -> int -> hittable -> vector
