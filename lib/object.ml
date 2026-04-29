@@ -2,11 +2,17 @@ open Vec
 open Ray
 open Interval
 
+type bounding_box = {
+  min : vector;
+  max : vector;
+}
+
 type hittable =
   | Sphere of vector * float
   | HittableList of hittable list
   | Triangle of vector * vector * vector
-  | TriangularMesh of vector list * (int * int * int) list
+  | TriangularMesh of
+      vector list * (int * int * int) list * vector list * bounding_box
 
 type hit_record = {
   p : vector;
@@ -17,13 +23,18 @@ type hit_record = {
 
 let make_hit_record p normal t hit_obj = { p; normal; t; hit_obj }
 
-let get_hit_triangle triangle ray interval : hit_record option =
+let get_hit_triangle ?normal triangle ray interval : hit_record option =
   match triangle with
   | Triangle (v0, v1, v2) ->
-      (* Check if ray intersects w/ the plane formed by the triangle*)
+      (* Use provided normal if available, otherwise compute it *)
       let v0v1 = v1 -^ v0 in
       let v0v2 = v2 -^ v0 in
-      let n = cross v0v1 v0v2 in
+      let n =
+        match normal with
+        | Some n -> n
+        | None -> cross v0v1 v0v2
+      in
+
       let n_dot_dir = dot n (direction ray) in
       if abs_float n_dot_dir < 1e-8 then None
       else
@@ -31,12 +42,9 @@ let get_hit_triangle triangle ray interval : hit_record option =
         let t = -1.0 *. (dot n (origin ray) +. d) /. n_dot_dir in
         if contains interval t then
           let p = at ray t in
-          (* Now check if p is inside the actual triangle using inside-out
-             test *)
+
           let v0p = p -^ v0 in
           let ne = cross v0v1 v0p in
-          (* for each side of the triangle we check if the point is on the right
-             side*)
           if dot n ne < 0. then None
           else
             let v1p = p -^ v1 in
@@ -51,28 +59,58 @@ let get_hit_triangle triangle ray interval : hit_record option =
   | _ ->
       raise (Invalid_argument "get_hit_triangle called on non-triangle object")
 
+let check_bound_box ray box =
+  let org = Ray.origin ray in
+  let dir = Ray.direction ray in
+  let min = box.min in
+  let max = box.max in
+  let tmin = (Vec.vec_fst min -. Vec.vec_fst org) /. Vec.vec_fst dir in
+  let tmax = (Vec.vec_fst max -. Vec.vec_fst org) /. Vec.vec_fst dir in
+  let tmin, tmax = if tmin > tmax then (tmax, tmin) else (tmin, tmax) in
+  let y_tmin = (Vec.vec_snd min -. Vec.vec_snd org) /. Vec.vec_snd dir in
+  let y_tmax = (Vec.vec_snd max -. Vec.vec_snd org) /. Vec.vec_snd dir in
+  let y_tmin, y_tmax =
+    if y_tmin > y_tmax then (y_tmax, y_tmin) else (y_tmin, y_tmax)
+  in
+  if tmin > y_tmax || y_tmin > tmax then false
+  else
+    let tmin = if y_tmin > tmin then y_tmin else tmin in
+    let tmax = if y_tmax < tmax then y_tmax else tmax in
+    let z_tmin = (Vec.vec_thd min -. Vec.vec_thd org) /. Vec.vec_thd dir in
+    let z_tmax = (Vec.vec_thd max -. Vec.vec_thd org) /. Vec.vec_thd dir in
+    let z_tmin, z_tmax =
+      if z_tmin > z_tmax then (z_tmax, z_tmin) else (z_tmin, z_tmax)
+    in
+    if tmin > z_tmax || z_tmin > tmax then false else true
+
 let get_hit_mesh mesh ray interval =
   match mesh with
-  | TriangularMesh (vertices, faces) ->
-      let verts = Array.of_list vertices in
-      let temp = Vec.make (infinity, infinity, infinity) in
-      let latest_hit =
-        List.fold_left
-          (fun acc (a, b, c) ->
-            let triangle = Triangle (verts.(a), verts.(b), verts.(c)) in
-            let triangle_hit = get_hit_triangle triangle ray interval in
-            match triangle_hit with
-            | None -> acc
-            | Some hit -> if hit.t < acc.t then hit else acc)
-          {
-            p = temp;
-            normal = temp;
-            t = infinity;
-            hit_obj = Triangle (temp, temp, temp);
-          }
-          faces
-      in
-      if latest_hit.t = infinity then None else Some latest_hit
+  | TriangularMesh (vertices, faces, normals, bounding_box) ->
+      if check_bound_box ray bounding_box then
+        let verts = Array.of_list vertices in
+        let temp = Vec.make (infinity, infinity, infinity) in
+        let normals = Array.of_list normals in
+        let latest_hit, i =
+          List.fold_left
+            (fun (acc, i) (a, b, c) ->
+              let triangle = Triangle (verts.(a), verts.(b), verts.(c)) in
+              let triangle_hit =
+                get_hit_triangle ~normal:normals.(i) triangle ray interval
+              in
+              match triangle_hit with
+              | None -> (acc, i + 1)
+              | Some hit -> if hit.t < acc.t then (hit, i + 1) else (acc, i + 1))
+            ( {
+                p = temp;
+                normal = temp;
+                t = infinity;
+                hit_obj = Triangle (temp, temp, temp);
+              },
+              0 )
+            faces
+        in
+        if latest_hit.t = infinity then None else Some latest_hit
+      else None
   | _ -> raise (Invalid_argument "get_hit_mesh called on non-mesh object")
 
 let get_hit_sphere (sphere : hittable) (curr_ray : ray) (interval : interval) :

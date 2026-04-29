@@ -2,12 +2,19 @@ open Vec
 open Ray
 open Interval
 
+
+type bounding_box = {
+  min : vector;
+  max : vector;
+}
 (** [hittable] represents an object that can be hit by a ray *)
 type hittable =
   | Sphere of vector * float
   | HittableList of hittable list
   | Triangle of vector * vector * vector
-  | TriangularMesh of vector list * (int * int * int) list
+  | TriangularMesh of vector list * (int * int * int) list * vector list * bounding_box
+(* A triangular mesh is defined by a list of vertices, a tuple list of the
+   vertices of each face, and the normal of each face*)
 
 (** [hit_record] defines a hit event, tracking the point of intersection,
     normal, and time *)
