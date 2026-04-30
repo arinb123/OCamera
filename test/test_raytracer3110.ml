@@ -11,6 +11,9 @@ open Raytracer3110.Object
 open Raytracer3110.Interval
 (*helper functions*)
 
+let eps = 1e-6
+let float_eq a b = abs_float (a -. b) < eps
+
 (* make vector *)
 let v (a, b, c) = V.make (a, b, c)
 
@@ -36,6 +39,8 @@ let cam_test =
     ()
 
 (*vector test*)
+let rng = Random.State.make [| 42 |]
+
 let vector_tests =
   "vector tests"
   >::: [
@@ -80,6 +85,83 @@ let vector_tests =
            assert_equal
              (v (0.0, 0.0, 1.0))
              (cross (v (1.0, 0.0, 0.0)) (v (0.0, 1.0, 0.0))) );
+         ( "vec fst" >:: fun _ ->
+           assert_equal (V.vec_fst (v (0.0, 1.0, 2.0))) 0.0 );
+         ( "vec snd" >:: fun _ ->
+           assert_equal (V.vec_snd (v (0.0, 1.0, 2.0))) 1.0 );
+         ( "vec thd" >:: fun _ ->
+           assert_equal (V.vec_thd (v (0.0, 1.0, 2.0))) 2.0 );
+         ( "vec_min takes smaller x" >:: fun _ ->
+           let r = vec_min (V.make (1., 0., 0.)) (V.make (3., 0., 0.)) in
+           assert_equal (vec_to_tup r) (1., 0., 0.) );
+         ( "vec_min takes smaller y" >:: fun _ ->
+           let r = vec_min (V.make (0., 5., 0.)) (V.make (0., 2., 0.)) in
+           assert_equal (vec_to_tup r) (0., 2., 0.) );
+         ( "vec_min takes smaller z" >:: fun _ ->
+           let r = vec_min (V.make (0., 0., 9.)) (V.make (0., 0., 4.)) in
+           assert_equal (vec_to_tup r) (0., 0., 4.) );
+         ( "vec_min picks minimum per component independently" >:: fun _ ->
+           let r = vec_min (V.make (1., 8., 3.)) (V.make (5., 2., 7.)) in
+           assert_equal (vec_to_tup r) (1., 2., 3.) );
+         ( "vec_min with equal vectors returns same vector" >:: fun _ ->
+           let v = V.make (3., 3., 3.) in
+           assert_bool "equal" (vec_eq (vec_min v v) v) );
+         ( "vec_min with negative components" >:: fun _ ->
+           let r = vec_min (V.make (-1., -2., -3.)) (V.make (-4., -1., -2.)) in
+           assert_equal (vec_to_tup r) (-4., -2., -3.) );
+         ( "vec_max takes larger x" >:: fun _ ->
+           let r = vec_max (V.make (1., 0., 0.)) (V.make (3., 0., 0.)) in
+           assert_equal (vec_to_tup r) (3., 0., 0.) );
+         ( "vec_max takes larger y" >:: fun _ ->
+           let r = vec_max (V.make (0., 5., 0.)) (V.make (0., 2., 0.)) in
+           assert_equal (vec_to_tup r) (0., 5., 0.) );
+         ( "vec_max takes larger z" >:: fun _ ->
+           let r = vec_max (V.make (0., 0., 9.)) (V.make (0., 0., 4.)) in
+           assert_equal (vec_to_tup r) (0., 0., 9.) );
+         ( "vec_max picks maximum per component independently" >:: fun _ ->
+           let r = vec_max (V.make (1., 8., 3.)) (V.make (5., 2., 7.)) in
+           assert_equal (vec_to_tup r) (5., 8., 7.) );
+         ( "vec_max with equal vectors returns same vector" >:: fun _ ->
+           let v = V.make (3., 3., 3.) in
+           assert_bool "equal" (vec_eq (vec_max v v) v) );
+         ( "vec_max with negative components" >:: fun _ ->
+           let r = vec_max (V.make (-1., -2., -3.)) (V.make (-4., -1., -2.)) in
+           assert_equal (vec_to_tup r) (-1., -1., -2.) );
+         ( "vec_min and vec_max are complementary" >:: fun _ ->
+           let v0 = V.make (1., 8., 3.) in
+           let v1 = V.make (5., 2., 7.) in
+           let lo = vec_min v0 v1 in
+           let hi = vec_max v0 v1 in
+           let lx, ly, lz = vec_to_tup lo in
+           let hx, hy, hz = vec_to_tup hi in
+           assert_bool "x" (lx <= hx);
+           assert_bool "y" (ly <= hy);
+           assert_bool "z" (lz <= hz) );
+         ( "random_on_hemisphere is a unit vector" >:: fun _ ->
+           let normal = V.make (0., 1., 0.) in
+           for _ = 1 to 100 do
+             let v = random_on_hemisphere rng normal in
+             let len = sqrt (length_squared v) in
+             assert_bool "len ≈ 1" (abs_float (len -. 1.0) < 1e-10)
+           done );
+         ( "random_on_hemisphere is in same hemisphere as normal" >:: fun _ ->
+           let normal = V.make (0., 1., 0.) in
+           for _ = 1 to 100 do
+             let v = random_on_hemisphere rng normal in
+             assert_bool "dot > 0" (dot v normal > 0.0)
+           done );
+         ( "random_on_hemisphere works with negative normal" >:: fun _ ->
+           let normal = V.make (0., -1., 0.) in
+           for _ = 1 to 100 do
+             let v = random_on_hemisphere rng normal in
+             assert_bool "dot > 0" (dot v normal > 0.0)
+           done );
+         ( "random_on_hemisphere works with diagonal normal" >:: fun _ ->
+           let n = V.make (1., 1., 0.) /^ sqrt 2. in
+           for _ = 1 to 100 do
+             let v = random_on_hemisphere rng n in
+             assert_bool "dot > 0" (dot v n > 0.0)
+           done );
        ]
 
 (* order-of-operations tests for custom vector operators *)
@@ -194,8 +276,71 @@ let ppm_tests =
            assert_equal "0 255 0" (String.trim (List.nth lines 4)) );
        ]
 
-let eps = 1e-6
-let float_eq a b = abs_float (a -. b) < eps
+let interval_tests =
+  "interval_tests"
+  >::: [
+         ( "make returns correct pair" >:: fun _ ->
+           assert_equal (1.0, 5.0) (make (1.0, 5.0)) );
+         ( "size of normal interval" >:: fun _ ->
+           assert_equal 4.0 (size (make (1.0, 5.0))) );
+         ( "size of empty interval is zero" >:: fun _ ->
+           assert_equal 0.0 (size empty) );
+         ( "size of single point is zero" >:: fun _ ->
+           assert_equal 0.0 (size (make (3.0, 3.0))) );
+         ( "surrounds true for interior point" >:: fun _ ->
+           assert_bool "should surround" (surrounds (make (0.0, 10.0)) 5.0) );
+         ( "surrounds false for left endpoint" >:: fun _ ->
+           assert_bool "should not surround"
+             (not (surrounds (make (0.0, 10.0)) 0.0)) );
+         ( "surrounds false for right endpoint" >:: fun _ ->
+           assert_bool "should not surround"
+             (not (surrounds (make (0.0, 10.0)) 10.0)) );
+         ( "surrounds false for point outside" >:: fun _ ->
+           assert_bool "should not surround"
+             (not (surrounds (make (0.0, 10.0)) 11.0)) );
+         ( "contains true for interior point" >:: fun _ ->
+           assert_bool "should contain" (contains (make (0.0, 10.0)) 5.0) );
+         ( "contains true for left endpoint" >:: fun _ ->
+           assert_bool "should contain" (contains (make (0.0, 10.0)) 0.0) );
+         ( "contains true for right endpoint" >:: fun _ ->
+           assert_bool "should contain" (contains (make (0.0, 10.0)) 10.0) );
+         ( "contains false for point outside" >:: fun _ ->
+           assert_bool "should not contain"
+             (not (contains (make (0.0, 10.0)) 11.0)) );
+         ( "empty interval has size zero" >:: fun _ ->
+           assert_equal 0.0 (size empty) );
+         ( "empty min and max are both zero" >:: fun _ ->
+           assert_equal 0.0 (min empty);
+           assert_equal 0.0 (max empty) );
+         ( "universe contains large positive" >:: fun _ ->
+           assert_bool "universe should contain" (contains universe 1e308) );
+         ( "universe contains large negative" >:: fun _ ->
+           assert_bool "universe should contain" (contains universe (-1e308)) );
+         ( "universe surrounds zero" >:: fun _ ->
+           assert_bool "universe should surround" (surrounds universe 0.0) );
+         ( "min returns lower bound" >:: fun _ ->
+           assert_equal 2.0 (min (make (2.0, 8.0))) );
+         ( "max returns upper bound" >:: fun _ ->
+           assert_equal 8.0 (max (make (2.0, 8.0))) );
+       ]
+
+(* (* camera tests *) *)
+(* let camera_tests = *)
+(*   "camera tests" *)
+(*   >::: [ *)
+(*          ( "image height matches aspect ratio" >:: fun _ -> *)
+(*            let expected = *)
+(*              int_of_float (float_of_int image_width /. aspect_ratio) *)
+(*            in *)
+(*            assert_equal expected image_height ); *)
+(*          ( "viewport width correct" >:: fun _ -> *)
+(*            let expected = *)
+(*              viewport_height *)
+(*              *. (float_of_int image_width /. float_of_int image_height) *)
+(*            in *)
+(*            assert_bool "viewport width mismatch" *)
+(*              (float_eq expected viewport_width) ); *)
+(*        ] *)
 
 (* Randomized QCheck vector tests *)
 let vec_eq v1 v2 =
@@ -332,8 +477,168 @@ let qcheck_tests =
       test_sphere_hit;
     ]
 
+(* Object tests *)
+
+let orig = V.make (0., 0., 0.)
+let fwd = V.make (0., 0., 1.)
+let ray_fwd = R.make orig fwd
+let wide = Raytracer3110.Interval.make (0.001, 1000.)
+let sphere_z5 = Sphere (V.make (0., 0., 5.), 1.)
+let sphere_neg = Sphere (V.make (0., 0., -5.), 1.)
+let tri_v0 = V.make (0., 0., 1.)
+let tri_v1 = V.make (1., 0., 1.)
+let tri_v2 = V.make (0., 1., 1.)
+let triangle = Triangle (tri_v0, tri_v1, tri_v2)
+let tri_v0 = V.make (-1., -1., 1.)
+let tri_v1 = V.make (1., -1., 1.)
+let tri_v2 = V.make (0., 1., 1.)
+let wide_triangle = Triangle (tri_v0, tri_v1, tri_v2)
+
+let hittable_tests =
+  "hittable_tests"
+  >::: [
+         ( "make_hit_record stores p" >:: fun _ ->
+           let r = make_hit_record orig fwd 1.0 sphere_z5 in
+           assert_equal orig r.p );
+         ( "make_hit_record stores normal" >:: fun _ ->
+           let r = make_hit_record orig fwd 1.0 sphere_z5 in
+           assert_equal fwd r.normal );
+         ( "make_hit_record stores t" >:: fun _ ->
+           let r = make_hit_record orig fwd 3.14 sphere_z5 in
+           assert_equal 3.14 r.t );
+         ( "make_hit_record stores hit_obj" >:: fun _ ->
+           let r = make_hit_record orig fwd 1.0 sphere_z5 in
+           assert_equal sphere_z5 r.hit_obj );
+         ( "sphere hit returns Some" >:: fun _ ->
+           assert_bool "expected hit"
+             (Option.is_some (hit sphere_z5 ray_fwd wide)) );
+         ( "sphere hit t is approximately 4.0 (front surface)" >:: fun _ ->
+           match hit sphere_z5 ray_fwd wide with
+           | None -> assert_failure "expected a hit"
+           | Some r -> assert_bool "t ≈ 4.0" (abs_float (r.t -. 4.0) < 1e-6) );
+         ( "sphere hit point lies on sphere surface" >:: fun _ ->
+           match hit sphere_z5 ray_fwd wide with
+           | None -> assert_failure "expected a hit"
+           | Some r ->
+               let center = V.make (0., 0., 5.) in
+               let dist = sqrt (V.length_squared (r.p -^ center)) in
+               assert_bool "dist ≈ 1.0" (abs_float (dist -. 1.0) < 1e-6) );
+         ( "sphere normal opposes ray direction (front face)" >:: fun _ ->
+           match hit sphere_z5 ray_fwd wide with
+           | None -> assert_failure "expected a hit"
+           | Some r -> assert_bool "dot < 0" (V.dot r.normal fwd < 0.) );
+         ( "sphere behind ray returns None" >:: fun _ ->
+           assert_bool "expected no hit"
+             (Option.is_none (hit sphere_neg ray_fwd wide)) );
+         ( "sphere outside interval returns None" >:: fun _ ->
+           let tiny = Raytracer3110.Interval.make (0.001, 1.) in
+           assert_bool "expected no hit"
+             (Option.is_none (hit sphere_z5 ray_fwd tiny)) );
+         ( "sphere lateral miss returns None" >:: fun _ ->
+           let side_ray = R.make (V.make (5., 0., 0.)) fwd in
+           assert_bool "expected no hit"
+             (Option.is_none (hit sphere_z5 side_ray wide)) );
+         ( "triangle ray along +z hits z=1 plane" >:: fun _ ->
+           assert_bool "expected hit"
+             (Option.is_some (hit triangle ray_fwd wide)) );
+         ( "triangle hit t is approximately 1.0" >:: fun _ ->
+           match hit triangle ray_fwd wide with
+           | None -> assert_failure "expected a hit"
+           | Some r -> assert_bool "t ≈ 1.0" (abs_float (r.t -. 1.0) < 1e-6) );
+         ( "triangle hit point is in z=1 plane" >:: fun _ ->
+           match hit triangle ray_fwd wide with
+           | None -> assert_failure "expected a hit"
+           | Some r ->
+               assert_bool "z ≈ 1.0" (abs_float (V.vec_thd r.p -. 1.0) < 1e-6)
+         );
+         ( "triangle ray misses when outside triangle bounds" >:: fun _ ->
+           (* (0.9, 0.9) is outside the right triangle *)
+           let outside = R.make orig (V.make (0.9, 0.9, 1.)) in
+           assert_bool "expected no hit"
+             (Option.is_none (hit triangle outside wide)) );
+         ( "triangle parallel ray returns None" >:: fun _ ->
+           let parallel = R.make orig (V.make (1., 0., 0.)) in
+           assert_bool "expected no hit"
+             (Option.is_none (hit triangle parallel wide)) );
+         ( "triangle outside interval returns None" >:: fun _ ->
+           let tiny = Raytracer3110.Interval.make (0.001, 0.5) in
+           assert_bool "expected no hit"
+             (Option.is_none (hit triangle ray_fwd tiny)) );
+         ( "empty list returns None" >:: fun _ ->
+           assert_bool "expected no hit"
+             (Option.is_none (hit (HittableList []) ray_fwd wide)) );
+         ( "single sphere list returns hit" >:: fun _ ->
+           assert_bool "expected hit"
+             (Option.is_some (hit (HittableList [ sphere_z5 ]) ray_fwd wide)) );
+         ( "list returns closest of two spheres" >:: fun _ ->
+           let near = Sphere (V.make (0., 0., 3.), 0.5) in
+           let far = Sphere (V.make (0., 0., 8.), 0.5) in
+           match hit (HittableList [ far; near ]) ray_fwd wide with
+           | None -> assert_failure "expected a hit"
+           | Some r ->
+               (* near sphere front surface is at t=2.5, far at t=7.5 *)
+               assert_bool "t closer to near sphere" (r.t < 4.0) );
+         ( "list of all misses returns None" >:: fun _ ->
+           let side = R.make orig (V.make (1., 0., 0.)) in
+           assert_bool "expected no hit"
+             (Option.is_none
+                (hit (HittableList [ sphere_z5; triangle ]) side wide)) );
+         ( "list hit obj matches the struck hittable" >:: fun _ ->
+           match hit (HittableList [ sphere_z5 ]) ray_fwd wide with
+           | None -> assert_failure "expected a hit"
+           | Some r -> assert_equal sphere_z5 r.hit_obj );
+         ( "mesh hit returns Some when ray passes through bounding box and \
+            triangle"
+         >:: fun _ ->
+           let verts =
+             [|
+               V.make (-1., -1., 5.); V.make (1., -1., 5.); V.make (0., 1., 5.);
+             |]
+           in
+           let faces = [ (0, 1, 2) ] in
+           let normals = [| V.make (0., 0., 1.) |] in
+           let bbox =
+             { min = V.make (-2., -2., 4.); max = V.make (2., 2., 6.) }
+           in
+           let mesh = TriangularMesh (verts, faces, normals, bbox) in
+           assert_bool "expected hit" (Option.is_some (hit mesh ray_fwd wide))
+         );
+         ( "mesh returns closest face when two faces present" >:: fun _ ->
+           (* near face at z=3, far face at z=7; ray hits interior of both *)
+           let verts =
+             [|
+               V.make (-1., -1., 3.);
+               V.make (1., -1., 3.);
+               V.make (0., 1., 3.);
+               V.make (-1., -1., 7.);
+               V.make (1., -1., 7.);
+               V.make (0., 1., 7.);
+             |]
+           in
+           let faces = [ (0, 1, 2); (3, 4, 5) ] in
+           let normals = [| V.make (0., 0., 1.); V.make (0., 0., 1.) |] in
+           let bbox =
+             { min = V.make (-2., -2., 2.); max = V.make (2., 2., 8.) }
+           in
+           let mesh = TriangularMesh (verts, faces, normals, bbox) in
+           match hit mesh ray_fwd wide with
+           | None -> assert_failure "expected a hit"
+           | Some r ->
+               assert_bool "t ≈ 3.0 (near face)" (abs_float (r.t -. 3.0) < 1e-6)
+         );
+       ]
+
 let tests =
   "test suite"
-  >::: [ vector_tests; order_of_operations_tests; ray_tests ] @ qcheck_tests
+  >::: [
+         vector_tests;
+         order_of_operations_tests;
+         ray_tests;
+         ppm_tests;
+         (* camera_tests; *)
+         interval_tests;
+         hittable_tests;
+       ]
+       @ qcheck_tests
 
 let _ = run_test_tt_main tests

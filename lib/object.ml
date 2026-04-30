@@ -99,7 +99,9 @@ let get_hit_mesh mesh ray interval =
               in
               match triangle_hit with
               | None -> (acc, i + 1)
-              | Some hit -> if hit.t < acc.t then (hit, i + 1) else (acc, i + 1))
+              | Some hit ->
+                  if hit.t < acc.t && contains interval hit.t then (hit, i + 1)
+                  else (acc, i + 1))
             ( {
                 p = temp;
                 normal = temp;
