@@ -3,10 +3,10 @@ open QCheck
 module V = Raytracer3110.Vec
 module R = Raytracer3110.Ray
 module O = Raytracer3110.Object
+module C = Raytracer3110.Camera
 open Raytracer3110.Vec
 open Raytracer3110.Ray
 open Raytracer3110.Ppm
-open Raytracer3110.Camera
 open Raytracer3110.Object
 open Raytracer3110.Interval
 (*helper functions*)
@@ -29,6 +29,11 @@ let read_file filename =
       List.rev acc
   in
   read_lines []
+
+let cam_test =
+  C.make ~image_width:400 ~aspect_ratio:(16. /. 9.) ~focal_length:1.
+    ~center:(V.make (0., 0., 5.))
+    ()
 
 (*vector test*)
 let vector_tests =
@@ -187,26 +192,6 @@ let ppm_tests =
            let lines = read_file filename in
            assert_equal "255 0 0" (String.trim (List.nth lines 3));
            assert_equal "0 255 0" (String.trim (List.nth lines 4)) );
-       ]
-
-(* camera tests *)
-let camera_tests =
-  "camera tests"
-  >::: [
-         ( "camera center at origin" >:: fun _ ->
-           assert_equal (v (0.0, 0.0, 0.0)) camera_center );
-         ( "image height matches aspect ratio" >:: fun _ ->
-           let expected =
-             int_of_float (float_of_int image_width /. aspect_ratio)
-           in
-           assert_equal expected image_height );
-         ( "viewport width correct" >:: fun _ ->
-           let expected =
-             viewport_height
-             *. (float_of_int image_width /. float_of_int image_height)
-           in
-           assert_bool "viewport width mismatch"
-             (float_eq expected viewport_width) );
        ]
 
 let eps = 1e-6

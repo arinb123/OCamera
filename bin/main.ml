@@ -7,4 +7,4 @@ let () =
   else Random.init 42;
   let scene_file = Sys.argv.(1) in
   let output_file = Sys.argv.(2) in
-  render scene_file output_file
+  render ~use_threading:true scene_file output_file

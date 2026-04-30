@@ -12,7 +12,7 @@ type hittable =
   | Sphere of vector * float
   | HittableList of hittable list
   | Triangle of vector * vector * vector
-  | TriangularMesh of vector list * (int * int * int) list * vector list * bounding_box
+  | TriangularMesh of vector array * (int * int * int) list * vector array * bounding_box
 (* A triangular mesh is defined by a list of vertices, a tuple list of the
    vertices of each face, and the normal of each face*)
 
@@ -33,6 +33,6 @@ val make_hit_record : vector -> vector -> float -> hittable -> hit_record
     the point of intersection, if any. *)
 val hit : hittable -> ray -> interval -> hit_record option
 
-(** [ray_color r depth obj] returns the color of the ray [r] when it hits the
+(** [ray_color r depth obj rng] returns the color of the ray [r] when it hits the
     hittable [obj] *)
-val ray_color : ray -> int -> hittable -> vector
+val ray_color : ray -> int -> hittable -> Random.State.t -> vector

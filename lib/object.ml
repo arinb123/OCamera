@@ -12,7 +12,7 @@ type hittable =
   | HittableList of hittable list
   | Triangle of vector * vector * vector
   | TriangularMesh of
-      vector list * (int * int * int) list * vector list * bounding_box
+      vector array * (int * int * int) list * vector array * bounding_box
 
 type hit_record = {
   p : vector;
@@ -87,9 +87,9 @@ let get_hit_mesh mesh ray interval =
   match mesh with
   | TriangularMesh (vertices, faces, normals, bounding_box) ->
       if check_bound_box ray bounding_box then
-        let verts = Array.of_list vertices in
+        let verts = vertices in
         let temp = Vec.make (infinity, infinity, infinity) in
-        let normals = Array.of_list normals in
+        let normals = normals in
         let latest_hit, i =
           List.fold_left
             (fun (acc, i) (a, b, c) ->
@@ -169,7 +169,7 @@ let rec hit (obj : hittable) (curr_ray : ray) (interval : interval) =
           | Some rec_right -> Some rec_right))
   | HittableList [] -> None
 
-let rec ray_color ray depth obj =
+let rec ray_color ray depth obj rng =
   if depth <= 0 then Vec.make (0., 0., 0.)
   else
     let hit_record = hit obj ray (Interval.make (0.001, infinity)) in
@@ -184,5 +184,5 @@ let rec ray_color ray depth obj =
         +^ (a *^ Vec.make (0.5, 0.7, 1.0))
     | Some hit ->
         (* implement true lambertian reflection *)
-        let direction = hit.normal +^ Vec.random_on_hemisphere hit.normal in
-        0.3 *^ ray_color (Ray.make hit.p direction) (depth - 1) obj
+        let direction = hit.normal +^ Vec.random_on_hemisphere rng hit.normal in
+        0.3 *^ ray_color (Ray.make hit.p direction) (depth - 1) obj rng

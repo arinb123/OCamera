@@ -2,3 +2,5 @@ _build/
 gallery.yaml
 gitlog.txt
 *.ppm
+*.coverage
+_coverage/
