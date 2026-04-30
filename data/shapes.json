@@ -1,6 +1,13 @@
+
 [
-  {
-    "type": "triangular_mesh",
-    "file_path": "./data/teapot.obj"
-  }
+    {
+        "type": "sphere",
+        "center": [0.0, 0.0, -1.0],
+        "radius": 0.5
+    },
+    {
+        "type": "sphere",
+        "center": [0.0, -100.5, -1.0],
+        "radius": 100.0
+    }
 ]

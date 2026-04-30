@@ -642,3 +642,4 @@ let tests =
        @ qcheck_tests
 
 let _ = run_test_tt_main tests
+module _ = Raytracer3110.Ui

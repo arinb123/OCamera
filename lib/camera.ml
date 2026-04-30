@@ -168,14 +168,9 @@ let render_pixel cam world rng i j =
   loop cam.samples_per_pixel (Vec.make (0., 0., 0.))
   /^ float_of_int cam.samples_per_pixel
 
-let render ?(use_threading = true) (json_filename : string)
+let render ?(use_threading = true) (cam : camera) (json_filename : string)
     (output_filename : string) : unit =
   let start_time = Unix.gettimeofday () in
-  let cam =
-    make ~image_width:400 ~aspect_ratio:(16. /. 9.) ~focal_length:1.
-      ~center:(Vec.make (0., 0., 5.))
-      ()
-  in
   let world = parse_scene json_filename in
 
   (* pre-allocate flat pixel buffer *)

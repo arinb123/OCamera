@@ -1,0 +1,6 @@
+[
+  {
+    "type": "triangular_mesh",
+    "file_path": "./data/teapot.obj"
+  }
+]

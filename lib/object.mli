@@ -7,6 +7,7 @@ type bounding_box = {
   min : vector;
   max : vector;
 }
+
 (** [hittable] represents an object that can be hit by a ray *)
 type hittable =
   | Sphere of vector * float

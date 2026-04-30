@@ -26,7 +26,7 @@ val make :
   unit ->
   camera
 
-(** [render json_filename output_filename ?use_threading ()] renders the scene
-    to a PPM file. If [use_threading] is true (default), uses all available
-    processor cores. *)
-val render : ?use_threading:bool -> string -> string -> unit
+(** [render cam json_filename output_filename ?use_threading ()] renders the
+    scene to a PPM file. If [use_threading] is true (default), uses all
+    available processor cores. *)
+val render : ?use_threading:bool -> camera -> string -> string -> unit
