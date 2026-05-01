@@ -324,23 +324,176 @@ let interval_tests =
            assert_equal 8.0 (max (make (2.0, 8.0))) );
        ]
 
-(* (* camera tests *) *)
-(* let camera_tests = *)
-(*   "camera tests" *)
-(*   >::: [ *)
-(*          ( "image height matches aspect ratio" >:: fun _ -> *)
-(*            let expected = *)
-(*              int_of_float (float_of_int image_width /. aspect_ratio) *)
-(*            in *)
-(*            assert_equal expected image_height ); *)
-(*          ( "viewport width correct" >:: fun _ -> *)
-(*            let expected = *)
-(*              viewport_height *)
-(*              *. (float_of_int image_width /. float_of_int image_height) *)
-(*            in *)
-(*            assert_bool "viewport width mismatch" *)
-(*              (float_eq expected viewport_width) ); *)
-(*        ] *)
+let camera_tests =
+  "camera tests"
+  >::: [
+         ( "image height computed from aspect ratio" >:: fun _ ->
+           let cam =
+             C.make ~image_width:400 ~aspect_ratio:(16. /. 9.)
+               ~focal_length:1.0 ~center:(V.make (0., 0., 0.)) ()
+           in
+           assert_equal 225 cam.image_height );
+         ( "image height is at least 1 for tiny image" >:: fun _ ->
+           let cam =
+             C.make ~image_width:1 ~aspect_ratio:1000.0
+               ~focal_length:1.0 ~center:(V.make (0., 0., 0.)) ()
+           in
+           assert_equal 1 cam.image_height );
+         ( "image width stored correctly" >:: fun _ ->
+           let cam =
+             C.make ~image_width:400 ~aspect_ratio:(16. /. 9.)
+               ~focal_length:1.0 ~center:(V.make (0., 0., 0.)) ()
+           in
+           assert_equal 400 cam.image_width );
+         ( "default samples_per_pixel is 10" >:: fun _ ->
+           let cam =
+             C.make ~image_width:400 ~aspect_ratio:(16. /. 9.)
+               ~focal_length:1.0 ~center:(V.make (0., 0., 0.)) ()
+           in
+           assert_equal 10 cam.samples_per_pixel );
+         ( "default max_depth is 10" >:: fun _ ->
+           let cam =
+             C.make ~image_width:400 ~aspect_ratio:(16. /. 9.)
+               ~focal_length:1.0 ~center:(V.make (0., 0., 0.)) ()
+           in
+           assert_equal 10 cam.max_depth );
+         ( "custom samples_per_pixel stored" >:: fun _ ->
+           let cam =
+             C.make ~samples_per_pixel:50 ~image_width:400
+               ~aspect_ratio:(16. /. 9.) ~focal_length:1.0
+               ~center:(V.make (0., 0., 0.)) ()
+           in
+           assert_equal 50 cam.samples_per_pixel );
+         ( "custom max_depth stored" >:: fun _ ->
+           let cam =
+             C.make ~max_depth:20 ~image_width:400
+               ~aspect_ratio:(16. /. 9.) ~focal_length:1.0
+               ~center:(V.make (0., 0., 0.)) ()
+           in
+           assert_equal 20 cam.max_depth );
+         ( "center stored correctly" >:: fun _ ->
+           let center = V.make (1., 2., 3.) in
+           let cam =
+             C.make ~image_width:400 ~aspect_ratio:(16. /. 9.)
+               ~focal_length:1.0 ~center ()
+           in
+           assert_equal center cam.center );
+         ( "default yaw is 0.0" >:: fun _ ->
+           let cam =
+             C.make ~image_width:400 ~aspect_ratio:(16. /. 9.)
+               ~focal_length:1.0 ~center:(V.make (0., 0., 0.)) ()
+           in
+           assert_bool "yaw = 0.0" (float_eq cam.yaw 0.0) );
+         ( "default pitch is 0.0" >:: fun _ ->
+           let cam =
+             C.make ~image_width:400 ~aspect_ratio:(16. /. 9.)
+               ~focal_length:1.0 ~center:(V.make (0., 0., 0.)) ()
+           in
+           assert_bool "pitch = 0.0" (float_eq cam.pitch 0.0) );
+         ( "custom yaw stored" >:: fun _ ->
+           let cam =
+             C.make ~yaw:1.0 ~image_width:400 ~aspect_ratio:(16. /. 9.)
+               ~focal_length:1.0 ~center:(V.make (0., 0., 0.)) ()
+           in
+           assert_bool "yaw = 1.0" (float_eq cam.yaw 1.0) );
+         ( "pitch clamped to 1.5 when exceeds upper bound" >:: fun _ ->
+           let cam =
+             C.make ~pitch:2.0 ~image_width:400 ~aspect_ratio:(16. /. 9.)
+               ~focal_length:1.0 ~center:(V.make (0., 0., 0.)) ()
+           in
+           assert_bool "pitch clamped to 1.5" (float_eq cam.pitch 1.5) );
+         ( "pitch clamped to -1.5 when below lower bound" >:: fun _ ->
+           let cam =
+             C.make ~pitch:(-2.0) ~image_width:400 ~aspect_ratio:(16. /. 9.)
+               ~focal_length:1.0 ~center:(V.make (0., 0., 0.)) ()
+           in
+           assert_bool "pitch clamped to -1.5" (float_eq cam.pitch (-1.5)) );
+         ( "pitch within valid range is not clamped" >:: fun _ ->
+           let cam =
+             C.make ~pitch:1.0 ~image_width:400 ~aspect_ratio:(16. /. 9.)
+               ~focal_length:1.0 ~center:(V.make (0., 0., 0.)) ()
+           in
+           assert_bool "pitch = 1.0" (float_eq cam.pitch 1.0) );
+         ( "pixel_delta_u and pixel_delta_v are orthogonal" >:: fun _ ->
+           let cam =
+             C.make ~image_width:400 ~aspect_ratio:(16. /. 9.)
+               ~focal_length:1.0 ~center:(V.make (0., 0., 0.)) ()
+           in
+           assert_bool "delta_u . delta_v = 0"
+             (abs_float (V.dot cam.pixel_delta_u cam.pixel_delta_v) < 1e-10) );
+         ( "pixel_delta_u points in +x at yaw=0 pitch=0" >:: fun _ ->
+           let cam =
+             C.make ~image_width:400 ~aspect_ratio:(16. /. 9.)
+               ~focal_length:1.0 ~yaw:0.0 ~pitch:0.0
+               ~center:(V.make (0., 0., 0.)) ()
+           in
+           let x, y, z = vec_to_tup cam.pixel_delta_u in
+           assert_bool "+x" (x > 0.0);
+           assert_bool "y=0" (abs_float y < 1e-10);
+           assert_bool "z=0" (abs_float z < 1e-10) );
+         ( "pixel_delta_v points in -y at yaw=0 pitch=0" >:: fun _ ->
+           let cam =
+             C.make ~image_width:400 ~aspect_ratio:(16. /. 9.)
+               ~focal_length:1.0 ~yaw:0.0 ~pitch:0.0
+               ~center:(V.make (0., 0., 0.)) ()
+           in
+           let x, y, z = vec_to_tup cam.pixel_delta_v in
+           assert_bool "x=0" (abs_float x < 1e-10);
+           assert_bool "-y" (y < 0.0);
+           assert_bool "z=0" (abs_float z < 1e-10) );
+         ( "pixel_delta_u length equals viewport_width / image_width" >:: fun _ ->
+           let iw = 400 and ih = 225 and vh = 2.0 in
+           let vw = vh *. (float_of_int iw /. float_of_int ih) in
+           let expected = vw /. float_of_int iw in
+           let cam =
+             C.make ~image_width:iw ~aspect_ratio:(16. /. 9.)
+               ~focal_length:1.0 ~viewport_height:vh
+               ~center:(V.make (0., 0., 0.)) ()
+           in
+           let len = sqrt (V.length_squared cam.pixel_delta_u) in
+           assert_bool "delta_u length"
+             (abs_float (len -. expected) < 1e-10) );
+         ( "pixel_delta_v length equals viewport_height / image_height" >:: fun _ ->
+           let ih = 225 and vh = 2.0 in
+           let expected = vh /. float_of_int ih in
+           let cam =
+             C.make ~image_width:400 ~aspect_ratio:(16. /. 9.)
+               ~focal_length:1.0 ~viewport_height:vh
+               ~center:(V.make (0., 0., 0.)) ()
+           in
+           let len = sqrt (V.length_squared cam.pixel_delta_v) in
+           assert_bool "delta_v length"
+             (abs_float (len -. expected) < 1e-10) );
+         ( "pixel deltas have equal length (square pixels)" >:: fun _ ->
+           let cam =
+             C.make ~image_width:400 ~aspect_ratio:(16. /. 9.)
+               ~focal_length:1.0 ~center:(V.make (0., 0., 0.)) ()
+           in
+           let lu = sqrt (V.length_squared cam.pixel_delta_u) in
+           let lv = sqrt (V.length_squared cam.pixel_delta_v) in
+           assert_bool "lu = lv" (abs_float (lu -. lv) < 1e-10) );
+         ( "pixel00_loc z equals -focal_length at default orientation" >:: fun _ ->
+           let cam =
+             C.make ~image_width:400 ~aspect_ratio:(16. /. 9.)
+               ~focal_length:1.0 ~yaw:0.0 ~pitch:0.0
+               ~center:(V.make (0., 0., 0.)) ()
+           in
+           let _, _, z = vec_to_tup cam.pixel00_loc in
+           assert_bool "z = -1.0" (abs_float (z -. (-1.0)) < 1e-10) );
+         ( "pixel00_loc shifts when center changes" >:: fun _ ->
+           let cam1 =
+             C.make ~image_width:400 ~aspect_ratio:(16. /. 9.)
+               ~focal_length:1.0 ~center:(V.make (0., 0., 0.)) ()
+           in
+           let cam2 =
+             C.make ~image_width:400 ~aspect_ratio:(16. /. 9.)
+               ~focal_length:1.0 ~center:(V.make (1., 0., 0.)) ()
+           in
+           let x1, _, _ = vec_to_tup cam1.pixel00_loc in
+           let x2, _, _ = vec_to_tup cam2.pixel00_loc in
+           assert_bool "pixel00 shifts by 1 in x"
+             (abs_float (x2 -. x1 -. 1.0) < 1e-10) );
+       ]
 
 (* Randomized QCheck vector tests *)
 let vec_eq v1 v2 =
@@ -630,6 +783,434 @@ let hittable_tests =
          );
        ]
 
+(* ── helpers for temp files ── *)
+let write_temp_yaml content =
+  let f = Filename.temp_file "raytest" ".yaml" in
+  let oc = open_out f in
+  output_string oc content;
+  close_out oc;
+  f
+
+let write_temp_obj content =
+  let f = Filename.temp_file "raytest" ".obj" in
+  let oc = open_out f in
+  output_string oc content;
+  close_out oc;
+  f
+
+(* ── vec_mul and reflect ── *)
+let vec_extra_tests =
+  "vec_extra_tests"
+  >::: [
+    ( "vec_mul component-wise product" >:: fun _ ->
+      let a = V.make (2., 3., 4.) and b = V.make (5., 6., 7.) in
+      assert_bool "vec_mul" (vec_eq (V.vec_mul a b) (V.make (10., 18., 28.))) );
+    ( "vec_mul by zero vector" >:: fun _ ->
+      let a = V.make (2., 3., 4.) and z = V.make (0., 0., 0.) in
+      assert_bool "vec_mul zero" (vec_eq (V.vec_mul a z) z) );
+    ( "vec_mul infix *^*" >:: fun _ ->
+      let a = V.make (1., 2., 3.) and b = V.make (3., 2., 1.) in
+      assert_bool "*^*" (vec_eq (a *^* b) (V.make (3., 4., 3.))) );
+    ( "reflect straight down off horizontal surface" >:: fun _ ->
+      (* v=(0,-1,0), n=(0,1,0) → reflect = (0,1,0) *)
+      assert_bool "reflect"
+        (vec_eq
+           (V.reflect (V.make (0., -1., 0.)) (V.make (0., 1., 0.)))
+           (V.make (0., 1., 0.))) );
+    ( "reflect 45 degrees off horizontal surface" >:: fun _ ->
+      (* v=(1,-1,0), n=(0,1,0) → reflect = (1,1,0) *)
+      assert_bool "reflect 45"
+        (vec_eq
+           (V.reflect (V.make (1., -1., 0.)) (V.make (0., 1., 0.)))
+           (V.make (1., 1., 0.))) );
+    ( "reflect preserves tangential component" >:: fun _ ->
+      let r = V.reflect (V.make (3., -4., 0.)) (V.make (0., 1., 0.)) in
+      let rx, ry, _ = vec_to_tup r in
+      assert_bool "tangential x=3" (float_eq rx 3.0);
+      assert_bool "normal flipped y=4" (float_eq ry 4.0) );
+  ]
+
+(* ── ray_color, bounding-box branches, sphere t2 / back-face ── *)
+let object_extra_tests =
+  let make_rng () = Random.State.make [| 42 |] in
+  "object_extra_tests"
+  >::: [
+    ( "ray_color depth=0 returns black" >:: fun _ ->
+      let color =
+        O.ray_color
+          (R.make (V.make (0., 0., 0.)) (V.make (0., 0., 1.)))
+          0 (HittableList []) (make_rng ())
+      in
+      assert_bool "black" (vec_eq color (V.make (0., 0., 0.))) );
+
+    ( "ray_color no-hit sky: ray pointing up yields bluish gradient" >:: fun _ ->
+      let color =
+        O.ray_color
+          (R.make (V.make (0., 0., 0.)) (V.make (0., 1., 0.)))
+          5 (HittableList []) (make_rng ())
+      in
+      let _, _, bz = vec_to_tup color in
+      assert_bool "sky is bluish (z > 0.5)" (bz > 0.5) );
+
+    ( "ray_color no-hit sky: color components are non-negative" >:: fun _ ->
+      let color =
+        O.ray_color
+          (R.make (V.make (0., 0., 0.)) (V.make (0., 0., -1.)))
+          5 (HittableList []) (make_rng ())
+      in
+      let x, y, z = vec_to_tup color in
+      assert_bool "non-negative" (x >= 0. && y >= 0. && z >= 0.) );
+
+    ( "ray_color Lambertian sphere hit (covers get_material Sphere)" >:: fun _ ->
+      let sphere =
+        Sphere (V.make (0., 0., 5.), 1., Lambertian (V.make (0.8, 0.8, 0.8)))
+      in
+      let color =
+        O.ray_color
+          (R.make (V.make (0., 0., 0.)) (V.make (0., 0., 1.)))
+          3 (HittableList [ sphere ]) (make_rng ())
+      in
+      let x, y, z = vec_to_tup color in
+      assert_bool "lambertian non-negative" (x >= 0. && y >= 0. && z >= 0.) );
+
+    ( "ray_color Metal sphere fuzz=0 (covers Metal scatter outward branch)" >:: fun _ ->
+      let sphere =
+        Sphere (V.make (0., 0., 5.), 1., Metal (V.make (0.8, 0.6, 0.2), 0.0))
+      in
+      let color =
+        O.ray_color
+          (R.make (V.make (0., 0., 0.)) (V.make (0., 0., 1.)))
+          3 (HittableList [ sphere ]) (make_rng ())
+      in
+      let x, y, z = vec_to_tup color in
+      assert_bool "metal non-negative" (x >= 0. && y >= 0. && z >= 0.) );
+
+    ( "ray_color Metal high fuzz (exercises zero-scatter branch)" >:: fun _ ->
+      (* fuzz=100 may push scatter_dir below surface → Vec.make(0,0,0).
+         We just verify no exception and components are non-negative. *)
+      let sphere =
+        Sphere (V.make (0., 0., 5.), 1., Metal (V.make (0.8, 0.6, 0.2), 100.0))
+      in
+      let color =
+        O.ray_color
+          (R.make (V.make (0., 0., 0.)) (V.make (0., 0., 1.)))
+          3 (HittableList [ sphere ]) (make_rng ())
+      in
+      let x, y, z = vec_to_tup color in
+      assert_bool "high-fuzz non-negative" (x >= 0. && y >= 0. && z >= 0.) );
+
+    ( "ray_color Triangle hit (covers get_material Triangle)" >:: fun _ ->
+      let tri =
+        Triangle
+          ( V.make (-2., -2., 3.),
+            V.make (2., -2., 3.),
+            V.make (0., 2., 3.),
+            Lambertian (V.make (0.7, 0.7, 0.7)) )
+      in
+      let color =
+        O.ray_color
+          (R.make (V.make (0., 0., 0.)) (V.make (0., 0., 1.)))
+          2 (HittableList [ tri ]) (make_rng ())
+      in
+      let x, y, z = vec_to_tup color in
+      assert_bool "triangle non-negative" (x >= 0. && y >= 0. && z >= 0.) );
+
+    ( "ray_color TriangularMesh hit (covers get_material TriangularMesh)" >:: fun _ ->
+      let verts =
+        [| V.make (-1., -1., 5.); V.make (1., -1., 5.); V.make (0., 1., 5.) |]
+      in
+      let normals = [| V.make (0., 0., -1.) |] in
+      let bbox = { min = V.make (-2., -2., 4.); max = V.make (2., 2., 6.) } in
+      let mesh =
+        TriangularMesh
+          (verts, [ (0, 1, 2) ], normals, bbox, Lambertian (V.make (0.8, 0.8, 0.8)))
+      in
+      let color =
+        O.ray_color
+          (R.make (V.make (0., 0., 0.)) (V.make (0., 0., 1.)))
+          2 (HittableList [ mesh ]) (make_rng ())
+      in
+      let x, y, z = vec_to_tup color in
+      assert_bool "mesh non-negative" (x >= 0. && y >= 0. && z >= 0.) );
+
+    ( "sphere t2 hit: ray origin inside sphere uses t2 not t1" >:: fun _ ->
+      (* sphere radius 2 at origin; ray from origin → t1=-2 (rejected), t2=+2 *)
+      let sphere =
+        Sphere (V.make (0., 0., 0.), 2., Lambertian (V.make (0.8, 0.8, 0.8)))
+      in
+      let ray = R.make (V.make (0., 0., 0.)) (V.make (0., 0., 1.)) in
+      match hit sphere ray (Raytracer3110.Interval.make (0.001, 100.)) with
+      | None -> assert_failure "expected hit from inside sphere"
+      | Some r -> assert_bool "t ≈ 2.0" (abs_float (r.t -. 2.0) < 1e-6) );
+
+    ( "sphere back-face normal is flipped inward" >:: fun _ ->
+      (* same scenario: hit at exit point, outward_normal=(0,0,1),
+         dot(dir, outward_n)=+1 > 0 → back face → normal flipped to (0,0,-1) *)
+      let sphere =
+        Sphere (V.make (0., 0., 0.), 2., Lambertian (V.make (0.8, 0.8, 0.8)))
+      in
+      let ray = R.make (V.make (0., 0., 0.)) (V.make (0., 0., 1.)) in
+      match hit sphere ray (Raytracer3110.Interval.make (0.001, 100.)) with
+      | None -> assert_failure "expected hit"
+      | Some r ->
+          let _, _, nz = vec_to_tup r.normal in
+          assert_bool "back-face normal is -z" (nz < 0.) );
+
+    ( "bbox early-exit: x-slab [5,10] vs y-slab [0,3] → tmin > y_tmax" >:: fun _ ->
+      (* ray (1,1,1) from origin: x-tmin=5, y-tmax=3 → 5>3 → false *)
+      let bbox = { min = V.make (5., 0., 4.); max = V.make (10., 3., 6.) } in
+      let mesh =
+        TriangularMesh ([||], [], [||], bbox, Lambertian (V.make (0.8, 0.8, 0.8)))
+      in
+      assert_bool "bbox y-miss → None"
+        (Option.is_none
+           (hit mesh
+              (R.make (V.make (0., 0., 0.)) (V.make (1., 1., 1.)))
+              wide)) );
+
+    ( "bbox early-exit: z-slab [10,20] vs combined xy-slab [2,4] → z_tmin > tmax" >:: fun _ ->
+      (* ray (1,1,1): xy slabs give [2,4], z_tmin=10 > tmax=4 → false *)
+      let bbox = { min = V.make (2., 2., 10.); max = V.make (4., 4., 20.) } in
+      let mesh =
+        TriangularMesh ([||], [], [||], bbox, Lambertian (V.make (0.8, 0.8, 0.8)))
+      in
+      assert_bool "bbox z-miss → None"
+        (Option.is_none
+           (hit mesh
+              (R.make (V.make (0., 0., 0.)) (V.make (1., 1., 1.)))
+              wide)) );
+
+    ( "bbox hit with negative direction (swap branches) + triangle miss (fold None)"
+    >:: fun _ ->
+      (* ray (12,5,8) dir (-1,-1,-1):
+         x: raw (7,2) → swap → [2,7]; y: raw (5,2) → swap → [2,5]; z: raw (4,2) → swap → [2,4]
+         overall hit [2,4]. Triangle at (5-6, 0-1, z=5) is missed by ray
+         hitting bbox at ≈(9,2,5) → fold returns None + latest_hit.t=∞ → None *)
+      let verts =
+        [| V.make (5., 0., 5.); V.make (6., 0., 5.); V.make (5., 1., 5.) |]
+      in
+      let normals = [| V.make (0., 0., 1.) |] in
+      let bbox = { min = V.make (5., 0., 4.); max = V.make (10., 3., 6.) } in
+      let mesh =
+        TriangularMesh
+          (verts, [ (0, 1, 2) ], normals, bbox, Lambertian (V.make (0.8, 0.8, 0.8)))
+      in
+      assert_bool "swap branches + fold None → None"
+        (Option.is_none
+           (hit mesh
+              (R.make (V.make (12., 5., 8.)) (V.make (-1., -1., -1.)))
+              wide)) );
+  ]
+
+(* ── camera: parse_yaml_scene, render_from_yaml, render_yaml_with_cam ── *)
+let camera_extra_tests =
+  let mk_yaml s =
+    let f = Filename.temp_file "raytest" ".yaml" in
+    let oc = open_out f in
+    output_string oc s;
+    close_out oc;
+    f
+  in
+  let mk_out () = Filename.temp_file "raytest" ".ppm" in
+
+  let tiny_sphere_yaml =
+    {|camera:
+  image_width: 2
+  aspect_ratio: 1.0
+  focal_length: 1.0
+  center: [0.0, 0.0, 0.0]
+  samples_per_pixel: 1
+  max_depth: 2
+  viewport_height: 2.0
+objects:
+  - type: sphere
+    center: [0.0, 0.0, -3.0]
+    radius: 1.0
+    material:
+      type: lambertian
+      albedo: [0.8, 0.8, 0.8]
+|}
+  in
+
+  let minimal_no_opts_yaml =
+    {|camera:
+  image_width: 2
+  aspect_ratio: 1.0
+  focal_length: 1.0
+  center: [0.0, 0.0, 0.0]
+objects:
+  - type: sphere
+    center: [0.0, 0.0, -3.0]
+    radius: 1.0
+|}
+  in
+
+  let metal_yaml =
+    {|camera:
+  image_width: 2
+  aspect_ratio: 1.0
+  focal_length: 1.0
+  center: [0.0, 0.0, 0.0]
+  samples_per_pixel: 1
+  max_depth: 2
+objects:
+  - type: sphere
+    center: [0.0, 0.0, -3.0]
+    radius: 1.0
+    material:
+      type: metal
+      albedo: [0.8, 0.6, 0.2]
+      fuzz: 0.1
+|}
+  in
+
+  let triangle_yaml =
+    {|camera:
+  image_width: 2
+  aspect_ratio: 1.0
+  focal_length: 1.0
+  center: [0.0, 0.0, 0.0]
+  samples_per_pixel: 1
+  max_depth: 2
+objects:
+  - type: triangle
+    v0: [0.0, 0.0, -1.0]
+    v1: [1.0, 0.0, -1.0]
+    v2: [0.0, 1.0, -1.0]
+    material:
+      type: lambertian
+      albedo: [0.7, 0.7, 0.7]
+|}
+  in
+
+  let string_aspect_yaml =
+    {|camera:
+  image_width: 2
+  aspect_ratio: "1.0"
+  focal_length: 1.0
+  center: [0.0, 0.0, 0.0]
+  samples_per_pixel: 1
+  max_depth: 2
+objects:
+  - type: sphere
+    center: [0.0, 0.0, -3.0]
+    radius: 1.0
+    material:
+      type: lambertian
+      albedo: [0.8, 0.8, 0.8]
+|}
+  in
+
+  "camera_extra_tests"
+  >::: [
+    ( "parse_yaml_scene: image_width read correctly" >:: fun _ ->
+      let f = mk_yaml tiny_sphere_yaml in
+      let cam, _ = C.parse_yaml_scene f in
+      assert_equal 2 cam.image_width );
+
+    ( "parse_yaml_scene: explicit samples_per_pixel stored" >:: fun _ ->
+      let f = mk_yaml tiny_sphere_yaml in
+      let cam, _ = C.parse_yaml_scene f in
+      assert_equal 1 cam.samples_per_pixel );
+
+    ( "parse_yaml_scene: explicit max_depth stored" >:: fun _ ->
+      let f = mk_yaml tiny_sphere_yaml in
+      let cam, _ = C.parse_yaml_scene f in
+      assert_equal 2 cam.max_depth );
+
+    ( "parse_yaml_scene: missing optional fields use defaults (10/10/2.0)" >:: fun _ ->
+      let f = mk_yaml minimal_no_opts_yaml in
+      let cam, _ = C.parse_yaml_scene f in
+      assert_equal 10 cam.samples_per_pixel;
+      assert_equal 10 cam.max_depth );
+
+    ( "parse_yaml_scene: metal material parsed correctly" >:: fun _ ->
+      let f = mk_yaml metal_yaml in
+      let _, world = C.parse_yaml_scene f in
+      match world with
+      | HittableList [ Sphere (_, _, Metal (_, fuzz)) ] ->
+          assert_bool "fuzz ≈ 0.1" (abs_float (fuzz -. 0.1) < 1e-6)
+      | _ -> assert_failure "expected HittableList with one Metal sphere" );
+
+    ( "parse_yaml_scene: triangle type object parsed" >:: fun _ ->
+      let f = mk_yaml triangle_yaml in
+      let _, world = C.parse_yaml_scene f in
+      match world with
+      | HittableList [ Triangle _ ] -> assert_bool "ok" true
+      | _ -> assert_failure "expected HittableList with one Triangle" );
+
+    ( "parse_yaml_scene: no material field defaults to Lambertian" >:: fun _ ->
+      let f = mk_yaml minimal_no_opts_yaml in
+      let _, world = C.parse_yaml_scene f in
+      match world with
+      | HittableList [ Sphere (_, _, Lambertian _) ] -> assert_bool "ok" true
+      | _ -> assert_failure "expected default Lambertian sphere" );
+
+    ( "parse_yaml_scene: aspect_ratio as quoted string (float_of_yaml String branch)"
+    >:: fun _ ->
+      let f = mk_yaml string_aspect_yaml in
+      let cam, _ = C.parse_yaml_scene f in
+      assert_equal 2 cam.image_width );
+
+    ( "parse_yaml_scene: triangular_mesh from OBJ (covers process_obj, parse_vertex, parse_face)"
+    >:: fun _ ->
+      let obj_content =
+        "v 0.0 0.0 0.0\nv 1.0 0.0 0.0\nv 0.0 1.0 0.0\nf 1 2 3\n"
+      in
+      let obj_f = write_temp_obj obj_content in
+      let yaml_content =
+        Printf.sprintf
+          {|camera:
+  image_width: 2
+  aspect_ratio: 1.0
+  focal_length: 1.0
+  center: [0.0, 5.0, 5.0]
+  samples_per_pixel: 1
+  max_depth: 1
+objects:
+  - type: triangular_mesh
+    file_path: %s
+    material:
+      type: lambertian
+      albedo: [0.8, 0.8, 0.8]
+|}
+          obj_f
+      in
+      let yaml_f = mk_yaml yaml_content in
+      let _, world = C.parse_yaml_scene yaml_f in
+      match world with
+      | HittableList [ TriangularMesh _ ] -> assert_bool "ok" true
+      | _ -> assert_failure "expected TriangularMesh" );
+
+    ( "render_from_yaml: output PPM has correct header" >:: fun _ ->
+      let yf = mk_yaml tiny_sphere_yaml in
+      let of_ = mk_out () in
+      C.render_from_yaml ~use_threading:false yf of_;
+      let lines = read_file of_ in
+      assert_equal "P3" (List.nth lines 0);
+      assert_equal "2 2" (String.trim (List.nth lines 1)) );
+
+    ( "render_from_yaml: output PPM has pixel data" >:: fun _ ->
+      let yf = mk_yaml tiny_sphere_yaml in
+      let of_ = mk_out () in
+      C.render_from_yaml ~use_threading:false yf of_;
+      let lines = read_file of_ in
+      assert_bool "has pixel rows" (List.length lines > 3) );
+
+    ( "render_yaml_with_cam: uses provided camera dimensions" >:: fun _ ->
+      let yf = mk_yaml tiny_sphere_yaml in
+      let of_ = mk_out () in
+      let cam =
+        C.make ~image_width:3 ~aspect_ratio:1.0 ~focal_length:1.0
+          ~samples_per_pixel:1 ~max_depth:1
+          ~center:(V.make (0., 0., 0.))
+          ()
+      in
+      C.render_yaml_with_cam ~use_threading:false cam yf of_;
+      let lines = read_file of_ in
+      assert_equal "3 3" (String.trim (List.nth lines 1)) );
+  ]
+
 let tests =
   "test suite"
   >::: [
@@ -637,9 +1218,12 @@ let tests =
          order_of_operations_tests;
          ray_tests;
          ppm_tests;
-         (* camera_tests; *)
+         camera_tests;
          interval_tests;
          hittable_tests;
+         vec_extra_tests;
+         object_extra_tests;
+         camera_extra_tests;
        ]
        @ qcheck_tests
 

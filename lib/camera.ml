@@ -12,23 +12,34 @@ type camera = {
   image_height : int;
   samples_per_pixel : int;
   max_depth : int;
+  yaw : float;
+  pitch : float;
 }
 
 let make ?(samples_per_pixel = 10) ?(max_depth = 10) ?(viewport_height = 2.0)
-    ~image_width ~aspect_ratio ~focal_length ~center () =
+    ?(yaw = 0.0) ?(pitch = 0.0) ~image_width ~aspect_ratio ~focal_length
+    ~center () =
   let image_height =
     max 1 (int_of_float (float_of_int image_width /. aspect_ratio))
   in
   let viewport_width =
     viewport_height *. (float_of_int image_width /. float_of_int image_height)
   in
-  let viewport_u = Vec.make (viewport_width, 0., 0.) in
-  let viewport_v = Vec.make (0., -.viewport_height, 0.) in
+  (* Clamp pitch to avoid gimbal lock at ±90° *)
+  let pitch = max (-1.5) (min 1.5 pitch) in
+  let forward =
+    Vec.normalize
+      (Vec.make (sin yaw *. cos pitch, sin pitch, -.(cos yaw *. cos pitch)))
+  in
+  let world_up = Vec.make (0., 1., 0.) in
+  let right = Vec.normalize (Vec.cross forward world_up) in
+  let up = Vec.normalize (Vec.cross right forward) in
+  let viewport_u = viewport_width *^ right in
+  let viewport_v = viewport_height *^ (Vec.make (0., 0., 0.) -^ up) in
   let pixel_delta_u = 1. /. float_of_int image_width *^ viewport_u in
   let pixel_delta_v = 1. /. float_of_int image_height *^ viewport_v in
   let viewport_upper_left =
-    center
-    -^ Vec.make (0., 0., focal_length)
+    center +^ (focal_length *^ forward)
     -^ (0.5 *^ viewport_u) -^ (0.5 *^ viewport_v)
   in
   let pixel00_loc =
@@ -43,19 +54,9 @@ let make ?(samples_per_pixel = 10) ?(max_depth = 10) ?(viewport_height = 2.0)
     image_height;
     samples_per_pixel;
     max_depth;
+    yaw;
+    pitch;
   }
-
-let parse_shapes (json_filename : string) =
-  try
-    let json = Yojson.Basic.from_file json_filename in
-    match json with
-    | `List object_list -> object_list
-    | _ -> failwith "Scene JSON must be a list of objects."
-  with
-  | Yojson.Json_error msg ->
-      failwith ("Invalid JSON in scene file '" ^ json_filename ^ "': " ^ msg)
-  | Sys_error msg ->
-      failwith ("Could not read scene file '" ^ json_filename ^ "': " ^ msg)
 
 (* Parse a vertex line: "v x y z" *)
 let parse_vertex (line : string) =
@@ -116,55 +117,113 @@ let process_obj (obj_filename : string) mat =
         { min = !min_vec; max = !max_vec },
         mat )
 
-let parse_scene json_filename =
-  let object_list = parse_shapes json_filename in
-  let vec_of_json json =
-    match Yojson.Basic.Util.convert_each Yojson.Basic.Util.to_float json with
-    | [ x; y; z ] -> Vec.make (x, y, z)
-    | _ -> failwith "Expected a list of 3 floats for vector fields"
-  in
-  HittableList
-    (List.map
-       (fun obj ->
-         let mat =
-           match Yojson.Basic.Util.member "material" obj with
-           | `Null -> Object.Lambertian (Vec.make (0.8, 0.8, 0.8))
-           | mat_json ->
-               let mat_type =
-                 Yojson.Basic.Util.(mat_json |> member "type" |> to_string)
-               in
-               let albedo =
-                 Yojson.Basic.Util.(mat_json |> member "albedo" |> vec_of_json)
-               in
-               if mat_type = "metal" then
-                 let fuzz =
-                   Yojson.Basic.Util.(mat_json |> member "fuzz" |> to_float)
-                 in
-                 Object.Metal (albedo, fuzz)
-               else Object.Lambertian albedo
-         in
+let find_field key fields =
+  match List.assoc_opt key fields with
+  | Some v -> v
+  | None -> failwith ("Missing required field: " ^ key)
 
-         match Yojson.Basic.Util.(obj |> member "type" |> to_string) with
-         | "sphere" ->
-             let center =
-               Yojson.Basic.Util.(obj |> member "center" |> vec_of_json)
-             in
-             let radius =
-               Yojson.Basic.Util.(obj |> member "radius" |> to_float)
-             in
-             Sphere (center, radius, mat)
-         | "triangle" ->
-             let v0 = Yojson.Basic.Util.(obj |> member "v0" |> vec_of_json) in
-             let v1 = Yojson.Basic.Util.(obj |> member "v1" |> vec_of_json) in
-             let v2 = Yojson.Basic.Util.(obj |> member "v2" |> vec_of_json) in
-             Triangle (v0, v1, v2, mat)
-         | "triangular_mesh" ->
-             let file_path =
-               Yojson.Basic.Util.(obj |> member "file_path" |> to_string)
-             in
-             process_obj file_path mat
-         | _ -> failwith "Unsupported object type in scene JSON")
-       object_list)
+let float_of_yaml = function
+  | `Float f -> f
+  | `String s -> ( try float_of_string s with _ -> failwith ("Expected float, got: " ^ s))
+  | _ -> failwith "Expected a float scalar"
+
+let int_of_yaml v = int_of_float (float_of_yaml v)
+
+let vec_of_yaml = function
+  | `A [ x; y; z ] -> Vec.make (float_of_yaml x, float_of_yaml y, float_of_yaml z)
+  | _ -> failwith "Expected a list of 3 floats for vector"
+
+let parse_material_yaml fields =
+  match List.assoc_opt "material" fields with
+  | None -> Object.Lambertian (Vec.make (0.8, 0.8, 0.8))
+  | Some (`O mat_fields) ->
+      let mat_type =
+        match find_field "type" mat_fields with
+        | `String s -> s
+        | _ -> failwith "material type must be a string"
+      in
+      let albedo = find_field "albedo" mat_fields |> vec_of_yaml in
+      if mat_type = "metal" then
+        let fuzz = find_field "fuzz" mat_fields |> float_of_yaml in
+        Object.Metal (albedo, fuzz)
+      else Object.Lambertian albedo
+  | _ -> failwith "material must be a mapping"
+
+let parse_yaml_scene (yaml_filename : string) : camera * Object.hittable =
+  let content =
+    let chan = open_in yaml_filename in
+    let n = in_channel_length chan in
+    let s = Bytes.create n in
+    really_input chan s 0 n;
+    close_in chan;
+    Bytes.to_string s
+  in
+  let yaml =
+    match Yaml.of_string content with
+    | Ok v -> v
+    | Error (`Msg msg) -> failwith ("Invalid YAML in '" ^ yaml_filename ^ "': " ^ msg)
+  in
+  match yaml with
+  | `O top_fields ->
+      let cam =
+        match find_field "camera" top_fields with
+        | `O cam_fields ->
+            let image_width = find_field "image_width" cam_fields |> int_of_yaml in
+            let aspect_ratio = find_field "aspect_ratio" cam_fields |> float_of_yaml in
+            let focal_length = find_field "focal_length" cam_fields |> float_of_yaml in
+            let center = find_field "center" cam_fields |> vec_of_yaml in
+            let samples_per_pixel =
+              match List.assoc_opt "samples_per_pixel" cam_fields with
+              | Some v -> int_of_yaml v
+              | None -> 10
+            in
+            let max_depth =
+              match List.assoc_opt "max_depth" cam_fields with
+              | Some v -> int_of_yaml v
+              | None -> 10
+            in
+            let viewport_height =
+              match List.assoc_opt "viewport_height" cam_fields with
+              | Some v -> float_of_yaml v
+              | None -> 2.0
+            in
+            make ~samples_per_pixel ~max_depth ~viewport_height ~image_width
+              ~aspect_ratio ~focal_length ~center ()
+        | _ -> failwith "camera must be a mapping"
+      in
+      let world =
+        match find_field "objects" top_fields with
+        | `A obj_list ->
+            Object.HittableList
+              (List.map
+                 (fun obj ->
+                   match obj with
+                   | `O obj_fields ->
+                       let mat = parse_material_yaml obj_fields in
+                       (match find_field "type" obj_fields with
+                       | `String "sphere" ->
+                           let center = find_field "center" obj_fields |> vec_of_yaml in
+                           let radius = find_field "radius" obj_fields |> float_of_yaml in
+                           Object.Sphere (center, radius, mat)
+                       | `String "triangle" ->
+                           let v0 = find_field "v0" obj_fields |> vec_of_yaml in
+                           let v1 = find_field "v1" obj_fields |> vec_of_yaml in
+                           let v2 = find_field "v2" obj_fields |> vec_of_yaml in
+                           Object.Triangle (v0, v1, v2, mat)
+                       | `String "triangular_mesh" ->
+                           let file_path =
+                             match find_field "file_path" obj_fields with
+                             | `String s -> s
+                             | _ -> failwith "file_path must be a string"
+                           in
+                           process_obj file_path mat
+                       | _ -> failwith "Unsupported object type in YAML scene")
+                   | _ -> failwith "Each object entry must be a mapping")
+                 obj_list)
+        | _ -> failwith "objects must be a list"
+      in
+      (cam, world)
+  | _ -> failwith "YAML scene must be a top-level mapping"
 
 (* render_pixel is a helper function for parallelism *)
 let render_pixel cam world rng i j =
@@ -187,10 +246,9 @@ let render_pixel cam world rng i j =
   loop cam.samples_per_pixel (Vec.make (0., 0., 0.))
   /^ float_of_int cam.samples_per_pixel
 
-let render ?(use_threading = true) (cam : camera) (json_filename : string)
-    (output_filename : string) : unit =
+let render_world ?(use_threading = true) (cam : camera)
+    (world : Object.hittable) (output_filename : string) : unit =
   let start_time = Unix.gettimeofday () in
-  let world = parse_scene json_filename in
 
   (* pre-allocate flat pixel buffer *)
   let n_pixels = cam.image_width * cam.image_height in
@@ -236,3 +294,13 @@ let render ?(use_threading = true) (cam : camera) (json_filename : string)
   let end_time = Unix.gettimeofday () in
   let elapsed = end_time -. start_time in
   Printf.printf "Rendering complete in %.2f seconds\n%!" elapsed
+
+let render_from_yaml ?(use_threading = true) (yaml_filename : string)
+    (output_filename : string) : unit =
+  let cam, world = parse_yaml_scene yaml_filename in
+  render_world ~use_threading cam world output_filename
+
+let render_yaml_with_cam ?(use_threading = true) (cam : camera)
+    (yaml_filename : string) (output_filename : string) : unit =
+  let _cam_from_yaml, world = parse_yaml_scene yaml_filename in
+  render_world ~use_threading cam world output_filename

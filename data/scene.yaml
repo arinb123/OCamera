@@ -1,0 +1,39 @@
+camera:
+  image_width: 400
+  aspect_ratio: 1.7778   # 16/9
+  focal_length: 1.0
+  center: [0.0, 0.0, 0.35]
+  samples_per_pixel: 50
+  max_depth: 10
+  viewport_height: 2.0
+
+objects:
+  - type: sphere
+    center: [0.0, 0.0, -1.0]
+    radius: 0.5
+    material:
+      type: lambertian
+      albedo: [0.1, 0.2, 0.5]
+
+  - type: sphere
+    center: [-1.0, 0.0, -1.0]
+    radius: 0.5
+    material:
+      type: metal
+      albedo: [0.8, 0.8, 0.8]
+      fuzz: 0.1
+
+  - type: sphere
+    center: [1.0, 0.0, -1.0]
+    radius: 0.5
+    material:
+      type: metal
+      albedo: [0.8, 0.6, 0.2]
+      fuzz: 0.0
+
+  - type: sphere
+    center: [0.0, -100.5, -1.0]
+    radius: 100.0
+    material:
+      type: lambertian
+      albedo: [0.8, 0.8, 0.0]

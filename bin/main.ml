@@ -4,8 +4,8 @@ module Vec = Raytracer3110.Vec
 
 let usage =
   "usage:\n\
-  \  dune exec bin/main.exe <input_scene.json> <output_image.ppm>\n\
-  \  dune exec bin/main.exe -- -ui <input_scene.json>"
+  \  dune exec bin/main.exe <input_scene.yaml> <output_image.ppm>\n\
+  \  dune exec bin/main.exe -- -ui <input_scene.yaml>"
 
 let candidate_scene_files path =
   let via_data = Filename.concat "data" (Filename.basename path) in
@@ -21,21 +21,21 @@ let choose_scene path =
 
 let () =
   let args = Array.to_list Sys.argv in
-  let cam =
-    Camera.make ~samples_per_pixel:50 ~max_depth:10 ~image_width:400
-      ~aspect_ratio:(16. /. 9.) ~focal_length:1.
-      ~center:(Vec.make (0., 0., 0.))
-      ()
-  in
   match args with
   | [ _prog; "-ui"; scene ] ->
       Random.init 42;
       let scene_file = choose_scene scene in
+      let cam =
+        Camera.make ~samples_per_pixel:50 ~max_depth:10 ~image_width:400
+          ~aspect_ratio:(16. /. 9.) ~focal_length:1.
+          ~center:(Vec.make (0., 0., 0.35))
+          ()
+      in
       Ui.run scene_file cam
   | [ _prog; scene; output ] ->
       Random.init 42;
       let scene_file = choose_scene scene in
-      Camera.render ~use_threading:true cam scene_file output
+      Camera.render_from_yaml ~use_threading:true scene_file output
   | _ ->
       prerr_endline usage;
       exit 1

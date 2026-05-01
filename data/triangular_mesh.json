@@ -1,6 +1,15 @@
 [
   {
     "type": "triangular_mesh",
-    "file_path": "./data/teapot.obj"
+    "file_path": "./data/teapot.obj",
+    "material": {
+      "type": "metal",
+      "albedo": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "fuzz": 0.0
+    }
   }
 ]

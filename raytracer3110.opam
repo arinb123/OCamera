@@ -13,7 +13,6 @@ depends: [
   "dune" {>= "3.22"}
   "ocaml"
   "bisect_ppx"
-  "yojson"
   "ounit2"
   "qcheck"
   "odoc" {with-doc}
