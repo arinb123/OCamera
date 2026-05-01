@@ -63,3 +63,7 @@ let random_on_hemisphere rng normal =
   let on_unit_sphere = random_unit_vector rng in
   if dot on_unit_sphere normal > 0.0 then on_unit_sphere
   else -1. *^ on_unit_sphere
+
+let vec_mul (u1, u2, u3) (v1, v2, v3) = (u1 *. v1, u2 *. v2, u3 *. v3)
+let ( *^* ) = vec_mul
+let reflect v n = v -^ (2.0 *. dot v n *^ n)

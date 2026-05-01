@@ -73,7 +73,7 @@ let parse_face (line : string) =
       with Failure _ -> failwith ("Invalid face format: " ^ line))
   | _ -> failwith ("Invalid face line: " ^ line)
 
-let process_obj (obj_filename : string) =
+let process_obj (obj_filename : string) mat =
   let vertices = Dynarray.create () in
   let faces = Dynarray.create () in
   let chan = open_in obj_filename in
@@ -113,7 +113,8 @@ let process_obj (obj_filename : string) =
       ( Dynarray.to_array vertices,
         Dynarray.to_list faces,
         Dynarray.to_array normals,
-        { min = !min_vec; max = !max_vec } )
+        { min = !min_vec; max = !max_vec },
+        mat )
 
 let parse_scene json_filename =
   let object_list = parse_shapes json_filename in
@@ -125,6 +126,24 @@ let parse_scene json_filename =
   HittableList
     (List.map
        (fun obj ->
+         let mat =
+           match Yojson.Basic.Util.member "material" obj with
+           | `Null -> Object.Lambertian (Vec.make (0.8, 0.8, 0.8))
+           | mat_json ->
+               let mat_type =
+                 Yojson.Basic.Util.(mat_json |> member "type" |> to_string)
+               in
+               let albedo =
+                 Yojson.Basic.Util.(mat_json |> member "albedo" |> vec_of_json)
+               in
+               if mat_type = "metal" then
+                 let fuzz =
+                   Yojson.Basic.Util.(mat_json |> member "fuzz" |> to_float)
+                 in
+                 Object.Metal (albedo, fuzz)
+               else Object.Lambertian albedo
+         in
+
          match Yojson.Basic.Util.(obj |> member "type" |> to_string) with
          | "sphere" ->
              let center =
@@ -133,18 +152,18 @@ let parse_scene json_filename =
              let radius =
                Yojson.Basic.Util.(obj |> member "radius" |> to_float)
              in
-             Sphere (center, radius)
+             Sphere (center, radius, mat)
          | "triangle" ->
              let v0 = Yojson.Basic.Util.(obj |> member "v0" |> vec_of_json) in
              let v1 = Yojson.Basic.Util.(obj |> member "v1" |> vec_of_json) in
              let v2 = Yojson.Basic.Util.(obj |> member "v2" |> vec_of_json) in
-             Triangle (v0, v1, v2)
+             Triangle (v0, v1, v2, mat)
          | "triangular_mesh" ->
              let file_path =
                Yojson.Basic.Util.(obj |> member "file_path" |> to_string)
              in
-             process_obj file_path
-         | _ -> failwith "Unknown object type in scene JSON")
+             process_obj file_path mat
+         | _ -> failwith "Unsupported object type in scene JSON")
        object_list)
 
 (* render_pixel is a helper function for parallelism *)

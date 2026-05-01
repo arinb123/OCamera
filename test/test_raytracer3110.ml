@@ -455,7 +455,9 @@ let test_sphere_hit =
   Test.make ~name:"sphere hit satisfies sphere equation"
     (QCheck.pair arb_ray arb_sphere) (fun ((ray_o, ray_d), (radius, origin)) ->
       let r = R.make ray_o ray_d in
-      let s = O.Sphere (origin, radius) in
+      let s =
+        O.Sphere (origin, radius, O.Lambertian (V.make (0.8, 0.8, 0.8)))
+      in
       match O.hit s r (make (0.001, infinity)) with
       | Some hit_rec ->
           let hit_point = hit_rec.p in
@@ -483,16 +485,16 @@ let orig = V.make (0., 0., 0.)
 let fwd = V.make (0., 0., 1.)
 let ray_fwd = R.make orig fwd
 let wide = Raytracer3110.Interval.make (0.001, 1000.)
-let sphere_z5 = Sphere (V.make (0., 0., 5.), 1.)
-let sphere_neg = Sphere (V.make (0., 0., -5.), 1.)
+let sphere_z5 = Sphere (V.make (0., 0., 5.), 1., Lambertian (V.make (0.8, 0.8, 0.8)))
+let sphere_neg = Sphere (V.make (0., 0., -5.), 1., Lambertian (V.make (0.8, 0.8, 0.8)))
 let tri_v0 = V.make (0., 0., 1.)
 let tri_v1 = V.make (1., 0., 1.)
 let tri_v2 = V.make (0., 1., 1.)
-let triangle = Triangle (tri_v0, tri_v1, tri_v2)
+let triangle = Triangle (tri_v0, tri_v1, tri_v2, Lambertian (V.make (0.8, 0.8, 0.8)))
 let tri_v0 = V.make (-1., -1., 1.)
 let tri_v1 = V.make (1., -1., 1.)
 let tri_v2 = V.make (0., 1., 1.)
-let wide_triangle = Triangle (tri_v0, tri_v1, tri_v2)
+let wide_triangle = Triangle (tri_v0, tri_v1, tri_v2, Lambertian (V.make (0.8, 0.8, 0.8)))
 
 let hittable_tests =
   "hittable_tests"
@@ -571,8 +573,8 @@ let hittable_tests =
            assert_bool "expected hit"
              (Option.is_some (hit (HittableList [ sphere_z5 ]) ray_fwd wide)) );
          ( "list returns closest of two spheres" >:: fun _ ->
-           let near = Sphere (V.make (0., 0., 3.), 0.5) in
-           let far = Sphere (V.make (0., 0., 8.), 0.5) in
+           let near = Sphere (V.make (0., 0., 3.), 0.5, Lambertian (V.make (0.8, 0.8, 0.8))) in
+           let far = Sphere (V.make (0., 0., 8.), 0.5, Lambertian (V.make (0.8, 0.8, 0.8))) in
            match hit (HittableList [ far; near ]) ray_fwd wide with
            | None -> assert_failure "expected a hit"
            | Some r ->
@@ -600,7 +602,7 @@ let hittable_tests =
            let bbox =
              { min = V.make (-2., -2., 4.); max = V.make (2., 2., 6.) }
            in
-           let mesh = TriangularMesh (verts, faces, normals, bbox) in
+           let mesh = TriangularMesh (verts, faces, normals, bbox, Lambertian (V.make (0.8, 0.8, 0.8))) in
            assert_bool "expected hit" (Option.is_some (hit mesh ray_fwd wide))
          );
          ( "mesh returns closest face when two faces present" >:: fun _ ->
@@ -620,7 +622,7 @@ let hittable_tests =
            let bbox =
              { min = V.make (-2., -2., 2.); max = V.make (2., 2., 8.) }
            in
-           let mesh = TriangularMesh (verts, faces, normals, bbox) in
+           let mesh = TriangularMesh (verts, faces, normals, bbox, Lambertian (V.make (0.8, 0.8, 0.8))) in
            match hit mesh ray_fwd wide with
            | None -> assert_failure "expected a hit"
            | Some r ->
@@ -642,4 +644,5 @@ let tests =
        @ qcheck_tests
 
 let _ = run_test_tt_main tests
+
 module _ = Raytracer3110.Ui

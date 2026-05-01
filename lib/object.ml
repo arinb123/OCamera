@@ -7,12 +7,20 @@ type bounding_box = {
   max : vector;
 }
 
+type material =
+  | Lambertian of vector (* matte object color *)
+  | Metal of vector * float (* reflected color + fuzziness *)
+
 type hittable =
-  | Sphere of vector * float
+  | Sphere of vector * float * material
   | HittableList of hittable list
-  | Triangle of vector * vector * vector
+  | Triangle of vector * vector * vector * material
   | TriangularMesh of
-      vector array * (int * int * int) list * vector array * bounding_box
+      vector array
+      * (int * int * int) list
+      * vector array
+      * bounding_box
+      * material
 
 type hit_record = {
   p : vector;
@@ -21,11 +29,19 @@ type hit_record = {
   hit_obj : hittable;
 }
 
+let get_material (obj : hittable) =
+  match obj with
+  | Sphere (_, _, mat) -> mat
+  | Triangle (_, _, _, mat) -> mat
+  | TriangularMesh (_, _, _, _, mat) -> mat
+  | HittableList _ ->
+      raise (Invalid_argument "HittableList does not have a material")
+
 let make_hit_record p normal t hit_obj = { p; normal; t; hit_obj }
 
 let get_hit_triangle ?normal triangle ray interval : hit_record option =
   match triangle with
-  | Triangle (v0, v1, v2) ->
+  | Triangle (v0, v1, v2, _) ->
       (* Use provided normal if available, otherwise compute it *)
       let v0v1 = v1 -^ v0 in
       let v0v2 = v2 -^ v0 in
@@ -85,7 +101,7 @@ let check_bound_box ray box =
 
 let get_hit_mesh mesh ray interval =
   match mesh with
-  | TriangularMesh (vertices, faces, normals, bounding_box) ->
+  | TriangularMesh (vertices, faces, normals, bounding_box, mat) ->
       if check_bound_box ray bounding_box then
         let verts = vertices in
         let temp = Vec.make (infinity, infinity, infinity) in
@@ -93,7 +109,7 @@ let get_hit_mesh mesh ray interval =
         let latest_hit, i =
           List.fold_left
             (fun (acc, i) (a, b, c) ->
-              let triangle = Triangle (verts.(a), verts.(b), verts.(c)) in
+              let triangle = Triangle (verts.(a), verts.(b), verts.(c), mat) in
               let triangle_hit =
                 get_hit_triangle ~normal:normals.(i) triangle ray interval
               in
@@ -106,7 +122,7 @@ let get_hit_mesh mesh ray interval =
                 p = temp;
                 normal = temp;
                 t = infinity;
-                hit_obj = Triangle (temp, temp, temp);
+                hit_obj = Triangle (temp, temp, temp, Lambertian temp);
               },
               0 )
             faces
@@ -118,7 +134,7 @@ let get_hit_mesh mesh ray interval =
 let get_hit_sphere (sphere : hittable) (curr_ray : ray) (interval : interval) :
     hit_record option =
   match sphere with
-  | Sphere (center, radius) ->
+  | Sphere (center, radius, _) ->
       let make_record_with_normal (t : float) (radius : float)
           (p_intersect : vector) (center : vector) =
         let outward_normal = (p_intersect -^ center) /^ radius in
@@ -177,14 +193,29 @@ let rec ray_color ray depth obj rng =
     let hit_record = hit obj ray (Interval.make (0.001, infinity)) in
     match hit_record with
     | None ->
-        (* render a blue gradient for the background, linear interpolation
-           between blue and white depending on y-value. *)
+        (* typical background gradient *)
         let unit_direction = normalize (direction ray) in
         let _, y, _ = vec_to_tup unit_direction in
         let a = 0.5 *. (y +. 1.0) in
         ((1.0 -. a) *^ Vec.make (1.0, 1.0, 1.0))
         +^ (a *^ Vec.make (0.5, 0.7, 1.0))
-    | Some hit ->
-        (* implement true lambertian reflection *)
-        let direction = hit.normal +^ Vec.random_on_hemisphere rng hit.normal in
-        0.3 *^ ray_color (Ray.make hit.p direction) (depth - 1) obj rng
+    | Some hit -> (
+        let mat = get_material hit.hit_obj in
+        match mat with
+        | Lambertian albedo ->
+            let scatter_dir = hit.normal +^ Vec.random_unit_vector rng in
+            albedo
+            *^* ray_color (Ray.make hit.p scatter_dir) (depth - 1) obj rng
+        | Metal (albedo, fuzz) ->
+            (* for metals, rays are reflected based on the normal. *)
+            let reflected =
+              Vec.reflect (normalize (direction ray)) hit.normal
+            in
+            let scatter_dir =
+              reflected +^ (fuzz *^ Vec.random_unit_vector rng)
+            in
+            (* only scatter if the reflection went outwards *)
+            if dot scatter_dir hit.normal > 0. then
+              albedo
+              *^* ray_color (Ray.make hit.p scatter_dir) (depth - 1) obj rng
+            else Vec.make (0., 0., 0.))

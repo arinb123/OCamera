@@ -22,8 +22,9 @@ let choose_scene path =
 let () =
   let args = Array.to_list Sys.argv in
   let cam =
-    Camera.make ~image_width:400 ~aspect_ratio:(16. /. 9.) ~focal_length:1.
-      ~center:(Vec.make (0., 0., 5.))
+    Camera.make ~samples_per_pixel:50 ~max_depth:10 ~image_width:400
+      ~aspect_ratio:(16. /. 9.) ~focal_length:1.
+      ~center:(Vec.make (0., 0., 0.))
       ()
   in
   match args with

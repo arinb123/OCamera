@@ -47,12 +47,24 @@ val vec_eq : vector -> vector -> bool
 (** [random_vec rng min max] returns a random vector in which each component is
     a random float between [min] and [max], using the provided random state
     [rng] *)
+val random_unit_vector : Random.State.t -> vector
+
 val random_vec : Random.State.t -> float -> float -> vector
 
 (** [random_on_hemisphere rng normal] generates a random valid unit vector on
     the same hemisphere as the given normal, using the provided random state
     [rng]. *)
 val random_on_hemisphere : Random.State.t -> vector -> vector
+
+(** [random_unit_vector rng] generates a random unit vector using the provided
+    random state [rng]. *)
+val random_unit_vector : Random.State.t -> vector
+
+(** [vec_mul u v] returns the element-wise product of [u] and [v] *)
+val vec_mul : vector -> vector -> vector
+
+(** [reflect v n] returns the reflection of vector [v] around normal [n] *)
+val reflect : vector -> vector -> vector
 
 (** [vec_min v0 v1] returns the vector with components being the minimum of each
     component of [v0] and [v1]. *)
@@ -73,3 +85,6 @@ val ( *^ ) : float -> vector -> vector
 
 (** [v /^ s] is an alias for [mult (1. /. s) v]. *)
 val ( /^ ) : vector -> float -> vector
+
+(** [u *^* v] is an alias for [vec_mul u v]. *)
+val ( *^* ) : vector -> vector -> vector
