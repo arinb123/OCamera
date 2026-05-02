@@ -1,0 +1,15 @@
+camera:
+  image_width: 400
+  aspect_ratio: 1.7778   # 16/9
+  focal_length: 1.0
+  center: [0.0, 0.0, 2]
+  samples_per_pixel: 10
+  max_depth: 10
+  viewport_height: 2.0
+
+objects:
+  - type: triangular_mesh
+    file_path: ./data/cube.obj
+    material:
+      type: lambertian
+      albedo: [0.1, 0.2, 0.5]

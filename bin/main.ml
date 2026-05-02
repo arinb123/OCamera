@@ -1,6 +1,5 @@
 module Camera = Raytracer3110.Camera
 module Ui = Raytracer3110.Ui
-module Vec = Raytracer3110.Vec
 
 let usage =
   "usage:\n\
@@ -25,12 +24,7 @@ let () =
   | [ _prog; "-ui"; scene ] ->
       Random.init 42;
       let scene_file = choose_scene scene in
-      let cam =
-        Camera.make ~samples_per_pixel:50 ~max_depth:10 ~image_width:400
-          ~aspect_ratio:(16. /. 9.) ~focal_length:1.
-          ~center:(Vec.make (0., 0., 0.35))
-          ()
-      in
+      let cam, _ = Camera.parse_yaml_scene scene_file in
       Ui.run scene_file cam
   | [ _prog; scene; output ] ->
       Random.init 42;

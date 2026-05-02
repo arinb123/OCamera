@@ -17,8 +17,8 @@ type camera = {
 }
 
 let make ?(samples_per_pixel = 10) ?(max_depth = 10) ?(viewport_height = 2.0)
-    ?(yaw = 0.0) ?(pitch = 0.0) ~image_width ~aspect_ratio ~focal_length
-    ~center () =
+    ?(yaw = 0.0) ?(pitch = 0.0) ~image_width ~aspect_ratio ~focal_length ~center
+    () =
   let image_height =
     max 1 (int_of_float (float_of_int image_width /. aspect_ratio))
   in
@@ -39,8 +39,8 @@ let make ?(samples_per_pixel = 10) ?(max_depth = 10) ?(viewport_height = 2.0)
   let pixel_delta_u = 1. /. float_of_int image_width *^ viewport_u in
   let pixel_delta_v = 1. /. float_of_int image_height *^ viewport_v in
   let viewport_upper_left =
-    center +^ (focal_length *^ forward)
-    -^ (0.5 *^ viewport_u) -^ (0.5 *^ viewport_v)
+    center +^ (focal_length *^ forward) -^ (0.5 *^ viewport_u)
+    -^ (0.5 *^ viewport_v)
   in
   let pixel00_loc =
     viewport_upper_left +^ (0.5 *^ (pixel_delta_u +^ pixel_delta_v))
@@ -85,13 +85,13 @@ let process_obj (obj_filename : string) mat =
     while true do
       let line = input_line chan in
       if String.length line >= 2 then
-        match String.sub line 0 1 with
-        | "v" ->
+        match String.sub line 0 2 with
+        | "v " ->
             let vertex = parse_vertex line in
             Dynarray.add_last vertices vertex;
             min_vec := Vec.vec_min !min_vec vertex;
             max_vec := Vec.vec_max !max_vec vertex
-        | "f" -> (
+        | "f " -> (
             let face = parse_face line in
             Dynarray.add_last faces face;
             match face with
@@ -124,13 +124,15 @@ let find_field key fields =
 
 let float_of_yaml = function
   | `Float f -> f
-  | `String s -> ( try float_of_string s with _ -> failwith ("Expected float, got: " ^ s))
+  | `String s -> (
+      try float_of_string s with _ -> failwith ("Expected float, got: " ^ s))
   | _ -> failwith "Expected a float scalar"
 
 let int_of_yaml v = int_of_float (float_of_yaml v)
 
 let vec_of_yaml = function
-  | `A [ x; y; z ] -> Vec.make (float_of_yaml x, float_of_yaml y, float_of_yaml z)
+  | `A [ x; y; z ] ->
+      Vec.make (float_of_yaml x, float_of_yaml y, float_of_yaml z)
   | _ -> failwith "Expected a list of 3 floats for vector"
 
 let parse_material_yaml fields =
@@ -161,16 +163,23 @@ let parse_yaml_scene (yaml_filename : string) : camera * Object.hittable =
   let yaml =
     match Yaml.of_string content with
     | Ok v -> v
-    | Error (`Msg msg) -> failwith ("Invalid YAML in '" ^ yaml_filename ^ "': " ^ msg)
+    | Error (`Msg msg) ->
+        failwith ("Invalid YAML in '" ^ yaml_filename ^ "': " ^ msg)
   in
   match yaml with
   | `O top_fields ->
       let cam =
         match find_field "camera" top_fields with
         | `O cam_fields ->
-            let image_width = find_field "image_width" cam_fields |> int_of_yaml in
-            let aspect_ratio = find_field "aspect_ratio" cam_fields |> float_of_yaml in
-            let focal_length = find_field "focal_length" cam_fields |> float_of_yaml in
+            let image_width =
+              find_field "image_width" cam_fields |> int_of_yaml
+            in
+            let aspect_ratio =
+              find_field "aspect_ratio" cam_fields |> float_of_yaml
+            in
+            let focal_length =
+              find_field "focal_length" cam_fields |> float_of_yaml
+            in
             let center = find_field "center" cam_fields |> vec_of_yaml in
             let samples_per_pixel =
               match List.assoc_opt "samples_per_pixel" cam_fields with
@@ -198,12 +207,16 @@ let parse_yaml_scene (yaml_filename : string) : camera * Object.hittable =
               (List.map
                  (fun obj ->
                    match obj with
-                   | `O obj_fields ->
+                   | `O obj_fields -> (
                        let mat = parse_material_yaml obj_fields in
-                       (match find_field "type" obj_fields with
+                       match find_field "type" obj_fields with
                        | `String "sphere" ->
-                           let center = find_field "center" obj_fields |> vec_of_yaml in
-                           let radius = find_field "radius" obj_fields |> float_of_yaml in
+                           let center =
+                             find_field "center" obj_fields |> vec_of_yaml
+                           in
+                           let radius =
+                             find_field "radius" obj_fields |> float_of_yaml
+                           in
                            Object.Sphere (center, radius, mat)
                        | `String "triangle" ->
                            let v0 = find_field "v0" obj_fields |> vec_of_yaml in
