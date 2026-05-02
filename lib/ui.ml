@@ -158,7 +158,7 @@ let run scene_file cam =
   let screen_w, screen_h, canvas_x, canvas_y, canvas_w, canvas_h =
     (1200, 760, 20, 110, 820, 620)
   in
-  Raylib.init_window screen_w screen_h "Raytracer UI";
+  Raylib.init_window screen_w screen_h "Raytracer GUI";
   Raylib.set_target_fps 15;
 
   let cx0, cy0, cz0 = Vec.vec_to_tup cam.center in
@@ -167,15 +167,57 @@ let run scene_file cam =
   let inp_x = panel_x + 60 in
   let fields =
     [|
-      { text = Printf.sprintf "%.3f" cx0;    label = "X";     x = inp_x; y = 205; w = fld_w; h = fld_h };
-      { text = Printf.sprintf "%.3f" cy0;    label = "Y";     x = inp_x; y = 240; w = fld_w; h = fld_h };
-      { text = Printf.sprintf "%.3f" cz0;    label = "Z";     x = inp_x; y = 275; w = fld_w; h = fld_h };
-      { text = Printf.sprintf "%.3f" cam.yaw;   label = "Yaw";   x = inp_x; y = 345; w = fld_w; h = fld_h };
-      { text = Printf.sprintf "%.3f" cam.pitch; label = "Pitch"; x = inp_x; y = 380; w = fld_w; h = fld_h };
+      {
+        text = Printf.sprintf "%.3f" cx0;
+        label = "X";
+        x = inp_x;
+        y = 205;
+        w = fld_w;
+        h = fld_h;
+      };
+      {
+        text = Printf.sprintf "%.3f" cy0;
+        label = "Y";
+        x = inp_x;
+        y = 240;
+        w = fld_w;
+        h = fld_h;
+      };
+      {
+        text = Printf.sprintf "%.3f" cz0;
+        label = "Z";
+        x = inp_x;
+        y = 275;
+        w = fld_w;
+        h = fld_h;
+      };
+      {
+        text = Printf.sprintf "%.3f" cam.yaw;
+        label = "Yaw";
+        x = inp_x;
+        y = 345;
+        w = fld_w;
+        h = fld_h;
+      };
+      {
+        text = Printf.sprintf "%.3f" cam.pitch;
+        label = "Pitch";
+        x = inp_x;
+        y = 380;
+        w = fld_w;
+        h = fld_h;
+      };
     |]
   in
   let state =
-    { step = 0.1; image = None; cam; status = "Rendering..."; fields; focused_field = -1 }
+    {
+      step = 0.1;
+      image = None;
+      cam;
+      status = "Rendering...";
+      fields;
+      focused_field = -1;
+    }
   in
   rerender state scene_file;
   sync_fields_from_cam state;
@@ -200,8 +242,7 @@ let run scene_file cam =
         fields;
       state.focused_field <- !hit;
       if
-        mx >= btn_x && mx <= btn_x + btn_w
-        && my >= btn_y && my <= btn_y + btn_h
+        mx >= btn_x && mx <= btn_x + btn_w && my >= btn_y && my <= btn_y + btn_h
       then begin
         state.focused_field <- -1;
         apply_fields state scene_file
@@ -210,9 +251,7 @@ let run scene_file cam =
 
     if state.focused_field >= 0 then begin
       let f = state.fields.(state.focused_field) in
-      if
-        Raylib.is_key_pressed Raylib.Key.Backspace
-        && String.length f.text > 0
+      if Raylib.is_key_pressed Raylib.Key.Backspace && String.length f.text > 0
       then f.text <- String.sub f.text 0 (String.length f.text - 1);
       let rec drain () =
         let c = Raylib.get_char_pressed () in
@@ -231,7 +270,8 @@ let run scene_file cam =
         state.focused_field <- -1;
         apply_fields state scene_file
       end
-    end else begin
+    end
+    else begin
       let moved = ref false in
       let cx, cy, cz = Vec.vec_to_tup state.cam.center in
       let ncx = ref cx in
@@ -291,16 +331,17 @@ let run scene_file cam =
 
     Raylib.begin_drawing ();
     Raylib.clear_background (color 7 12 20);
-    Raylib.draw_text "Raytracer UI" 20 20 34 (color 235 241 255);
+    Raylib.draw_text "Raytracer GUI" 20 20 34 (color 235 241 255);
     let c = state.cam.center in
     Raylib.draw_text
       (Printf.sprintf "Camera: (%.2f, %.2f, %.2f)  Yaw: %.2f  Pitch: %.2f"
-         (Vec.vec_fst c) (Vec.vec_snd c) (Vec.vec_thd c)
-         state.cam.yaw state.cam.pitch)
+         (Vec.vec_fst c) (Vec.vec_snd c) (Vec.vec_thd c) state.cam.yaw
+         state.cam.pitch)
       20 66 20 (color 173 196 224);
     Raylib.draw_text
       (Printf.sprintf
-         "Step: %.2f   WASD: translate  Arrow keys: rotate  Q/E: depth  R: reset"
+         "Step: %.2f   WASD: translate  Arrow keys: rotate  Q/E: depth  R: \
+          reset"
          state.step)
       20 88 16 (color 143 167 194);
 
@@ -316,14 +357,12 @@ let run scene_file cam =
 
     (* Input panel *)
     Raylib.draw_text "Position" panel_x 182 18 (color 173 196 224);
-    Raylib.draw_text "Rotation" panel_x 322 18 (color 173 196 224);
+    Raylib.draw_text "Rotation (radians)" panel_x 322 18 (color 173 196 224);
 
     Array.iteri
       (fun i f ->
         let focused = state.focused_field = i in
-        let border =
-          if focused then color 80 150 255 else color 60 90 130
-        in
+        let border = if focused then color 80 150 255 else color 60 90 130 in
         Raylib.draw_text f.label panel_x (f.y + 5) 16 (color 143 167 194);
         Raylib.draw_rectangle f.x f.y f.w f.h (color 20 32 50);
         Raylib.draw_rectangle_lines f.x f.y f.w f.h border;
@@ -332,12 +371,9 @@ let run scene_file cam =
       fields;
 
     let btn_hover =
-      mx >= btn_x && mx <= btn_x + btn_w
-      && my >= btn_y && my <= btn_y + btn_h
+      mx >= btn_x && mx <= btn_x + btn_w && my >= btn_y && my <= btn_y + btn_h
     in
-    let btn_col =
-      if btn_hover then color 80 140 240 else color 40 80 180
-    in
+    let btn_col = if btn_hover then color 80 140 240 else color 40 80 180 in
     Raylib.draw_rectangle btn_x btn_y btn_w btn_h btn_col;
     Raylib.draw_text "Apply" (btn_x + 38) (btn_y + 7) 16 (color 230 240 255);
 
